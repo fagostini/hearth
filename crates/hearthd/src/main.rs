@@ -7,11 +7,13 @@ mod store;
 use accounting::{action, capped, counts, outside, Action};
 use chrono::Datelike;
 use anyhow::Context;
-use std::{env, fs, path::PathBuf, time::{Duration, Instant}};
+use std::{collections::HashMap, env, fs, path::PathBuf, time::{Duration, Instant}};
 use tracing::{info, warn};
 
 const TICK: Duration = Duration::from_secs(15);
 const CHECKPOINT: Duration = Duration::from_secs(30);
+/// After a graceful logout request, how long before TerminateSession.
+const FORCE_AFTER: Duration = Duration::from_secs(10);
 
 struct Child {
     user: String,
@@ -70,6 +72,7 @@ async fn main() -> anyhow::Result<()> {
     let conn = zbus::Connection::system().await?;
     let mgr = session::ManagerProxy::new(&conn).await?;
 
+    let mut ending: HashMap<String, Instant> = HashMap::new(); // session id -> SIGTERM sent
     let mut ticker = tokio::time::interval(TICK);
     let (mut last, mut last_wall, mut last_save) = (Instant::now(), chrono::Local::now(), Instant::now());
     loop {
@@ -103,6 +106,7 @@ async fn main() -> anyhow::Result<()> {
             }
         };
         let input_age = activity.input_age(now);
+        ending.retain(|id, _| sessions.iter().any(|s| &s.id == id));
 
         for c in &mut children {
             let mine: Vec<_> = sessions.iter().filter(|s| s.uid == c.uid).collect();
@@ -123,7 +127,18 @@ async fn main() -> anyhow::Result<()> {
                 let res = match action(c.over_since.map(|t| now - t), grace, s.locked) {
                     Action::Nothing => continue,
                     Action::Lock => mgr.lock_session(&s.id).await,
-                    Action::Terminate => mgr.terminate_session(&s.id).await,
+                    Action::Terminate => match ending.get(&s.id) {
+                        None if session::end_gracefully(s) => {
+                            info!(user = c.user, session = s.id, "logging out");
+                            ending.insert(s.id.clone(), now);
+                            Ok(())
+                        }
+                        Some(t) if now - *t < FORCE_AFTER => Ok(()),
+                        _ => {
+                            info!(user = c.user, session = s.id, "terminating");
+                            mgr.terminate_session(&s.id).await
+                        }
+                    },
                 };
                 if let Err(e) = res {
                     warn!(user = c.user, session = s.id, %e, "enforcement failed");

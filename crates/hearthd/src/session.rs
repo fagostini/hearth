@@ -20,6 +20,10 @@ pub trait Session {
     fn locked_hint(&self) -> zbus::Result<bool>;
     #[zbus(property)]
     fn class(&self) -> zbus::Result<String>;
+    #[zbus(property)]
+    fn leader(&self) -> zbus::Result<u32>;
+    #[zbus(property)]
+    fn scope(&self) -> zbus::Result<String>;
 }
 
 pub struct Info {
@@ -27,6 +31,8 @@ pub struct Info {
     pub uid: u32,
     pub active: bool,
     pub locked: bool,
+    pub leader: u32,
+    pub scope: String,
 }
 
 /// User-class sessions of the given UIDs. Sessions that vanish mid-query are skipped.
@@ -45,11 +51,28 @@ pub async fn list(conn: &Connection, mgr: &ManagerProxy<'_>, uids: &[u32]) -> zb
             if s.class().await? != "user" {
                 return Ok(None);
             }
-            zbus::Result::Ok(Some((s.active().await?, s.locked_hint().await?)))
+            zbus::Result::Ok(Some((s.active().await?, s.locked_hint().await?, s.leader().await?, s.scope().await?)))
         };
-        if let Ok(Some((active, locked))) = read.await {
-            out.push(Info { id, uid, active, locked });
+        if let Ok(Some((active, locked, leader, scope))) = read.await {
+            out.push(Info { id, uid, active, locked, leader, scope });
         }
     }
     Ok(out)
+}
+
+/// Ask the session to end the way a normal logout would: SIGTERM every process in
+/// its scope except the leader (the display manager's PAM helper). Killing the
+/// leader too (what TerminateSession does) makes SDDM 0.20 treat the session as
+/// crashed and leave a black screen instead of the login screen.
+/// Returns false if the scope's process list can't be read (cgroup v1, gone).
+pub fn end_gracefully(s: &Info) -> bool {
+    let path = format!("/sys/fs/cgroup/user.slice/user-{}.slice/{}/cgroup.procs", s.uid, s.scope);
+    let Ok(procs) = std::fs::read_to_string(path) else { return false };
+    for pid in procs.lines().filter_map(|l| l.parse::<i32>().ok()) {
+        if pid != s.leader as i32 {
+            // SAFETY: plain syscall; a PID that already exited just returns ESRCH.
+            unsafe { libc::kill(pid, libc::SIGTERM) };
+        }
+    }
+    true
 }
