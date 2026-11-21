@@ -1,7 +1,16 @@
-# /etc/hearth/hearthd.toml — rules for hearthd (M1; moves to the parent app in M5).
-# Admin accounts (sudo/wheel/admin) are always ignored.
-grace_seconds = 60   # lock -> logout delay once the daily limit is reached
+# /etc/hearth/hearthd.toml — rules for hearthd (moves to the parent app in M5).
+# Admin accounts (sudo/wheel/admin group, or any sudo rights) are always ignored.
+grace_seconds = 60   # lock -> logout delay once a limit applies
 
 [[child]]
 user = "alice"
 daily_minutes = 120
+allowed = "07:00-20:00"   # same-day window; omit for any time
+
+# Optional per-day overrides (mon..sun); unset fields fall back to the above.
+[child.weekday.sat]
+daily_minutes = 180
+allowed = "08:00-21:00"
+
+[child.weekday.sun]
+daily_minutes = 180

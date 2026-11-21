@@ -4,7 +4,8 @@ mod config;
 mod session;
 mod store;
 
-use accounting::{action, capped, counts, Action};
+use accounting::{action, capped, counts, outside, Action};
+use chrono::Datelike;
 use anyhow::Context;
 use std::{env, fs, path::PathBuf, time::{Duration, Instant}};
 use tracing::{info, warn};
@@ -15,7 +16,7 @@ const CHECKPOINT: Duration = Duration::from_secs(30);
 struct Child {
     user: String,
     uid: u32,
-    limit: Duration,
+    days: [config::Day; 7],
     used: Duration,
     over_since: Option<Instant>,
 }
@@ -56,9 +57,10 @@ async fn main() -> anyhow::Result<()> {
             warn!(user = r.user, "admin account, rule ignored");
             continue;
         }
+        let days = r.days().with_context(|| format!("rule for {}", r.user))?;
         let used = Duration::from_secs(store.load(&day, uid)?);
-        info!(user = r.user, uid, limit_min = r.daily_minutes, used_s = used.as_secs(), "child");
-        children.push(Child { user: r.user, uid, limit: Duration::from_secs(r.daily_minutes * 60), used, over_since: None });
+        info!(user = r.user, uid, limit_min = r.daily_minutes, allowed = r.allowed, used_s = used.as_secs(), "child");
+        children.push(Child { user: r.user, uid, days, used, over_since: None });
     }
     let uids: Vec<u32> = children.iter().map(|c| c.uid).collect();
 
@@ -89,7 +91,6 @@ async fn main() -> anyhow::Result<()> {
             for c in &mut children {
                 store.save(&day, c.uid, c.used.as_secs())?;
                 c.used = Duration::ZERO;
-                c.over_since = None;
             }
             day = new_day;
         }
@@ -108,8 +109,14 @@ async fn main() -> anyhow::Result<()> {
             if mine.iter().any(|s| counts(s.active, s.locked, input_age)) {
                 c.used += delta;
             }
-            if c.used >= c.limit && c.over_since.is_none() && !mine.is_empty() {
-                info!(user = c.user, "daily limit reached");
+            let today = &c.days[wall.weekday().num_days_from_monday() as usize];
+            let over_limit = c.used >= Duration::from_secs(today.minutes * 60);
+            let over = over_limit || outside(today.window, wall.time());
+            if !over {
+                c.over_since = None; // back inside the window, or a new day reset `used`
+            } else if c.over_since.is_none() && !mine.is_empty() {
+                // Kept across logouts, so logging in again doesn't restart the grace period.
+                info!(user = c.user, reason = if over_limit { "daily limit" } else { "outside allowed hours" }, "enforcing");
                 c.over_since = Some(now);
             }
             for s in mine {

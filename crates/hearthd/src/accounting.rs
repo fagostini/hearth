@@ -15,6 +15,11 @@ pub fn capped(delta: Duration, tick: Duration) -> Duration {
     delta.min(tick * 2)
 }
 
+/// Outside the allowed window (start inclusive, end exclusive)?
+pub fn outside(window: Option<(chrono::NaiveTime, chrono::NaiveTime)>, now: chrono::NaiveTime) -> bool {
+    window.is_some_and(|(a, b)| now < a || now >= b)
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Action {
     Nothing,
@@ -51,6 +56,16 @@ mod tests {
     fn cap() {
         assert_eq!(capped(S(15), S(15)), S(15));
         assert_eq!(capped(S(3600), S(15)), S(30)); // resume after suspend
+    }
+
+    #[test]
+    fn window() {
+        let t = |s| chrono::NaiveTime::parse_from_str(s, "%H:%M").unwrap();
+        let w = Some((t("07:00"), t("20:00")));
+        assert!(outside(w, t("06:59")));
+        assert!(!outside(w, t("07:00")));
+        assert!(outside(w, t("20:00")));
+        assert!(!outside(None, t("03:00")));
     }
 
     #[test]
