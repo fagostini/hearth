@@ -1,0 +1,15 @@
+[Unit]
+Description=Hearth parental controls daemon
+After=systemd-logind.service
+
+[Service]
+ExecStart=/usr/bin/hearthd
+Restart=always
+StateDirectory=hearth
+StateDirectoryMode=0700
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
