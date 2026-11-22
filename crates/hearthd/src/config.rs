@@ -8,6 +8,8 @@ pub struct Config {
     /// Seconds between lock and logout once the limit is reached.
     #[serde(default = "default_grace")]
     pub grace_seconds: u64,
+    /// ntfy server for the parent's phone (e.g. "https://ntfy.sh"); absent = no phone.
+    pub relay: Option<String>,
     #[serde(default)]
     pub child: Vec<ChildRule>,
 }

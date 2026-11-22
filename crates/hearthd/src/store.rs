@@ -17,7 +17,10 @@ impl Store {
                 PRIMARY KEY (day, uid));
              CREATE TABLE IF NOT EXISTS app_usage (
                 day TEXT NOT NULL, uid INTEGER NOT NULL, app TEXT NOT NULL, seconds INTEGER NOT NULL,
-                PRIMARY KEY (day, uid, app))",
+                PRIMARY KEY (day, uid, app));
+             CREATE TABLE IF NOT EXISTS bonus (
+                day TEXT NOT NULL, uid INTEGER NOT NULL, seconds INTEGER NOT NULL,
+                PRIMARY KEY (day, uid))",
         )?;
         Ok(Self(db))
     }
@@ -45,6 +48,24 @@ impl Store {
         let mut q = self.0.prepare("SELECT app, seconds FROM app_usage WHERE day = ?1 AND uid = ?2")?;
         let rows = q.query_map(params![day, uid], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u64)))?;
         Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Extra time approved by a parent for that day.
+    pub fn load_bonus(&self, day: &str, uid: u32) -> anyhow::Result<u64> {
+        let s = self
+            .0
+            .query_row("SELECT seconds FROM bonus WHERE day = ?1 AND uid = ?2", params![day, uid], |r| r.get::<_, i64>(0))
+            .optional()?;
+        Ok(s.unwrap_or(0) as u64)
+    }
+
+    pub fn save_bonus(&self, day: &str, uid: u32, seconds: u64) -> anyhow::Result<()> {
+        self.0.execute(
+            "INSERT INTO bonus (day, uid, seconds) VALUES (?1, ?2, ?3)
+             ON CONFLICT (day, uid) DO UPDATE SET seconds = excluded.seconds",
+            params![day, uid, seconds as i64],
+        )?;
+        Ok(())
     }
 
     pub fn save_app(&self, day: &str, uid: u32, app: &str, seconds: u64) -> anyhow::Result<()> {
