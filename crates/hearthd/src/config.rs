@@ -12,7 +12,7 @@ pub struct Config {
     pub child: Vec<ChildRule>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ChildRule {
     pub user: String,
@@ -25,6 +25,22 @@ pub struct ChildRule {
     /// Daily minutes per desktop app ID (e.g. "org.mozilla.firefox"); 0 = blocked.
     #[serde(default)]
     pub apps: HashMap<String, u64>,
+    /// DNS filtering; absent = no filtering for this child.
+    pub web: Option<Web>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
+pub struct Web {
+    /// Domains blocked with all their subdomains.
+    #[serde(default)]
+    pub block: Vec<String>,
+    #[serde(default = "yes")]
+    pub safesearch: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Deserialize, Clone)]

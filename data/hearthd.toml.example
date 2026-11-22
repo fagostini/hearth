@@ -21,3 +21,10 @@ daily_minutes = 180
 [child.apps]
 "org.kde.konsole" = 30
 "firefox_firefox" = 60
+
+# DNS filtering (omit for none). Blocks each domain and its subdomains, forces
+# SafeSearch on Google, YouTube (moderate), Bing and DuckDuckGo, and turns off
+# Firefox's own DNS-over-HTTPS. DNS-over-TLS (port 853) is rejected.
+[child.web]
+block = ["tiktok.com", "example-casino.com"]
+safesearch = true

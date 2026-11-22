@@ -3,6 +3,7 @@ mod api;
 mod apps;
 mod activity;
 mod config;
+mod dns;
 mod session;
 mod store;
 
@@ -49,8 +50,16 @@ async fn main() -> anyhow::Result<()> {
     let db_path = PathBuf::from(env::var("HEARTH_DB").unwrap_or("/var/lib/hearth/hearth.db".into()));
 
     let cfg: config::Config = toml::from_str(&fs::read_to_string(&config_path).with_context(|| config_path.clone())?)?;
+    let passwd = fs::read_to_string("/etc/passwd")?;
+    if env::args().nth(1).as_deref() == Some("dns") {
+        // Unprivileged resolver service. Admin checks happen in the root daemon,
+        // which only redirects children that passed them.
+        let kids = cfg.child.iter().filter_map(|r| Some((r.clone(), config::uid_of(&passwd, &r.user)?))).collect();
+        return dns::run(cfg, kids).await;
+    }
     let grace = Duration::from_secs(cfg.grace_seconds);
-    let (passwd, group) = (fs::read_to_string("/etc/passwd")?, fs::read_to_string("/etc/group")?);
+    let group = fs::read_to_string("/etc/group")?;
+    let mut filtered = Vec::new();
     let store = store::Store::open(&db_path)?;
     let mut day = today();
 
@@ -64,6 +73,9 @@ async fn main() -> anyhow::Result<()> {
             warn!(user = r.user, "admin account, rule ignored");
             continue;
         }
+        if r.web.is_some() {
+            filtered.push(uid);
+        }
         let days = r.days().with_context(|| format!("rule for {}", r.user))?;
         let used = Duration::from_secs(store.load(&day, uid)?);
         info!(user = r.user, uid, limit_min = r.daily_minutes, allowed = r.allowed, used_s = used.as_secs(), "child");
@@ -72,6 +84,7 @@ async fn main() -> anyhow::Result<()> {
         children.push(Child { user: r.user, uid, days, used, app_limits, app_used, over_since: None });
     }
     let uids: Vec<u32> = children.iter().map(|c| c.uid).collect();
+    dns::apply_nft(&filtered).await;
 
     let activity = activity::Activity::default();
     tokio::spawn(activity.clone().watch());

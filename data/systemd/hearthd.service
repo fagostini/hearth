@@ -1,6 +1,7 @@
 [Unit]
 Description=Hearth parental controls daemon
-After=systemd-logind.service
+After=systemd-logind.service hearth-dns.service
+Wants=hearth-dns.service
 
 [Service]
 ExecStart=/usr/bin/hearthd
