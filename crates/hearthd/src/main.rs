@@ -1,5 +1,6 @@
 mod accounting;
 mod api;
+mod apps;
 mod activity;
 mod config;
 mod session;
@@ -21,6 +22,9 @@ struct Child {
     uid: u32,
     days: [config::Day; 7],
     used: Duration,
+    /// Daily app limits (app ID -> limit) and today's use per app.
+    app_limits: HashMap<String, Duration>,
+    app_used: HashMap<String, Duration>,
     over_since: Option<Instant>,
 }
 
@@ -63,7 +67,9 @@ async fn main() -> anyhow::Result<()> {
         let days = r.days().with_context(|| format!("rule for {}", r.user))?;
         let used = Duration::from_secs(store.load(&day, uid)?);
         info!(user = r.user, uid, limit_min = r.daily_minutes, allowed = r.allowed, used_s = used.as_secs(), "child");
-        children.push(Child { user: r.user, uid, days, used, over_since: None });
+        let app_limits = r.apps.iter().map(|(a, m)| (a.clone(), Duration::from_secs(m * 60))).collect();
+        let app_used = store.load_apps(&day, uid)?.into_iter().map(|(a, s)| (a, Duration::from_secs(s))).collect();
+        children.push(Child { user: r.user, uid, days, used, app_limits, app_used, over_since: None });
     }
     let uids: Vec<u32> = children.iter().map(|c| c.uid).collect();
 
@@ -79,6 +85,7 @@ async fn main() -> anyhow::Result<()> {
     let mgr = session::ManagerProxy::new(&conn).await?;
 
     let mut ending: HashMap<String, Instant> = HashMap::new(); // session id -> SIGTERM sent
+    let mut closing: HashMap<std::path::PathBuf, Instant> = HashMap::new(); // app cgroup -> SIGTERM sent
     let mut ticker = tokio::time::interval(TICK);
     let (mut last, mut last_wall, mut last_save) = (Instant::now(), chrono::Local::now(), Instant::now());
     loop {
@@ -99,7 +106,11 @@ async fn main() -> anyhow::Result<()> {
         if new_day != day {
             for c in &mut children {
                 store.save(&day, c.uid, c.used.as_secs())?;
+                for (a, u) in &c.app_used {
+                    store.save_app(&day, c.uid, a, u.as_secs())?;
+                }
                 c.used = Duration::ZERO;
+                c.app_used.clear();
             }
             day = new_day;
         }
@@ -116,8 +127,38 @@ async fn main() -> anyhow::Result<()> {
 
         for c in &mut children {
             let mine: Vec<_> = sessions.iter().filter(|s| s.uid == c.uid).collect();
-            if mine.iter().any(|s| counts(s.active, s.locked, input_age)) {
+            let counting = mine.iter().any(|s| counts(s.active, s.locked, input_age));
+            if counting {
                 c.used += delta;
+            }
+
+            // Per-app "time open": only limited apps are tracked. An app with two
+            // units (e.g. Flatpak + launcher scope) counts once.
+            if !c.app_limits.is_empty() {
+                for (app, cgroups) in apps::running(c.uid) {
+                    let Some(limit) = c.app_limits.get(&app) else { continue };
+                    let used = c.app_used.entry(app.clone()).or_default();
+                    if counting {
+                        *used += delta;
+                    }
+                    if *used < *limit {
+                        continue;
+                    }
+                    for cg in cgroups {
+                        match closing.get(&cg) {
+                            None => {
+                                info!(user = c.user, app, "app limit reached, closing");
+                                apps::term(&cg);
+                                closing.insert(cg, now);
+                            }
+                            Some(t) if now - *t >= FORCE_AFTER => {
+                                warn!(user = c.user, app, "app still open, killing");
+                                apps::kill(&cg);
+                            }
+                            Some(_) => {}
+                        }
+                    }
+                }
             }
             let today = &c.days[wall.weekday().num_days_from_monday() as usize];
             let over_limit = c.used >= Duration::from_secs(today.minutes * 60);
@@ -130,7 +171,7 @@ async fn main() -> anyhow::Result<()> {
                 c.over_since = Some(now);
             }
             let left = remaining(Duration::from_secs(today.minutes * 60), c.used, today.window, wall.time());
-            let state = if c.over_since.is_some() { "over" } else { "ok" };
+            let state = if over { "over" } else { "ok" };
             status.lock().unwrap().insert(c.uid, (left.as_secs() as i64, state.into()));
             for s in mine {
                 let res = match action(c.over_since.map(|t| now - t), grace, s.locked) {
@@ -159,7 +200,11 @@ async fn main() -> anyhow::Result<()> {
         if now - last_save >= CHECKPOINT {
             for c in &children {
                 store.save(&day, c.uid, c.used.as_secs())?;
+                for (a, u) in &c.app_used {
+                    store.save_app(&day, c.uid, a, u.as_secs())?;
+                }
             }
+            closing.retain(|cg, _| cg.exists());
             last_save = now;
         }
     }

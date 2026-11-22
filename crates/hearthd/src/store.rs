@@ -14,7 +14,10 @@ impl Store {
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS usage (
                 day TEXT NOT NULL, uid INTEGER NOT NULL, seconds INTEGER NOT NULL,
-                PRIMARY KEY (day, uid))",
+                PRIMARY KEY (day, uid));
+             CREATE TABLE IF NOT EXISTS app_usage (
+                day TEXT NOT NULL, uid INTEGER NOT NULL, app TEXT NOT NULL, seconds INTEGER NOT NULL,
+                PRIMARY KEY (day, uid, app))",
         )?;
         Ok(Self(db))
     }
@@ -37,6 +40,23 @@ impl Store {
     }
 }
 
+impl Store {
+    pub fn load_apps(&self, day: &str, uid: u32) -> anyhow::Result<std::collections::HashMap<String, u64>> {
+        let mut q = self.0.prepare("SELECT app, seconds FROM app_usage WHERE day = ?1 AND uid = ?2")?;
+        let rows = q.query_map(params![day, uid], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as u64)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn save_app(&self, day: &str, uid: u32, app: &str, seconds: u64) -> anyhow::Result<()> {
+        self.0.execute(
+            "INSERT INTO app_usage (day, uid, app, seconds) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT (day, uid, app) DO UPDATE SET seconds = excluded.seconds",
+            params![day, uid, app, seconds as i64],
+        )?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -48,6 +68,9 @@ mod tests {
         s.save("2026-11-21", 1001, 90).unwrap();
         assert_eq!(s.load("2026-11-21", 1001).unwrap(), 90);
         assert_eq!(s.load("2026-11-22", 1001).unwrap(), 0);
+        s.save_app("2026-11-21", 1001, "org.mozilla.firefox", 30).unwrap();
+        s.save_app("2026-11-21", 1001, "org.mozilla.firefox", 45).unwrap();
+        assert_eq!(s.load_apps("2026-11-21", 1001).unwrap()["org.mozilla.firefox"], 45);
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

@@ -14,3 +14,10 @@ allowed = "08:00-21:00"
 
 [child.weekday.sun]
 daily_minutes = 180
+
+# Daily minutes per app (desktop file ID without ".desktop"); 0 = blocked.
+# Snaps use <snap>_<app>, e.g. firefox_firefox. Counts "time open" while the
+# child is active; at the limit the app is closed (SIGTERM, then killed after 10 s).
+[child.apps]
+"org.kde.konsole" = 30
+"firefox_firefox" = 60

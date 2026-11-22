@@ -22,6 +22,9 @@ pub struct ChildRule {
     /// Overrides per day: keys mon..sun.
     #[serde(default)]
     pub weekday: HashMap<String, DayRule>,
+    /// Daily minutes per desktop app ID (e.g. "org.mozilla.firefox"); 0 = blocked.
+    #[serde(default)]
+    pub apps: HashMap<String, u64>,
 }
 
 #[derive(Deserialize, Clone)]

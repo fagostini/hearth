@@ -37,6 +37,9 @@ const THRESHOLDS: [i64; 3] = [600, 300, 60];
 
 /// Which warning to show now, if any: the smallest threshold crossed since last check.
 fn due(prev: i64, left: i64) -> Option<i64> {
+    if left <= 0 {
+        return None; // at the limit: the daemon is already locking
+    }
     THRESHOLDS.into_iter().filter(|&t| left <= t && prev > t).min()
 }
 
@@ -107,6 +110,7 @@ mod tests {
         assert_eq!(due(600, 585), None); // already warned
         assert_eq!(due(i64::MAX, 250), Some(300)); // login with 4 min left: one warning, not three
         assert_eq!(due(400, 30), Some(60)); // skipped past 5 min (window end): smallest
+        assert_eq!(due(i64::MAX, 0), None);
         assert_eq!(mins(59), "1 minute");
         assert_eq!(mins(61), "2 minutes");
     }
