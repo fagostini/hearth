@@ -63,7 +63,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -1679105280;
+  int get rustContentHash => 539009794;
 
   static const kDefaultExternalLibraryLoaderConfig = ExternalLibraryLoaderConfig(
     stem: 'hearth_bridge',
@@ -87,7 +87,13 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiPair({required String statePath, required String qr, required String phoneName});
 
+  Future<void> crateApiRequestHistory({required String statePath});
+
+  Future<void> crateApiRequestRules({required String statePath});
+
   Future<void> crateApiRequestStatus({required String statePath});
+
+  Future<void> crateApiSetRules({required String statePath, required Rules rules});
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -193,13 +199,53 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "pair", argNames: ["statePath", "qr", "phoneName"]);
 
   @override
-  Future<void> crateApiRequestStatus({required String statePath}) {
+  Future<void> crateApiRequestHistory({required String statePath}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(statePath, serializer);
           pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
+        constMeta: kCrateApiRequestHistoryConstMeta,
+        argValues: [statePath],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRequestHistoryConstMeta =>
+      const TaskConstMeta(debugName: "request_history", argNames: ["statePath"]);
+
+  @override
+  Future<void> crateApiRequestRules({required String statePath}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(statePath, serializer);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
+        constMeta: kCrateApiRequestRulesConstMeta,
+        argValues: [statePath],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiRequestRulesConstMeta =>
+      const TaskConstMeta(debugName: "request_rules", argNames: ["statePath"]);
+
+  @override
+  Future<void> crateApiRequestStatus({required String statePath}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(statePath, serializer);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
         constMeta: kCrateApiRequestStatusConstMeta,
@@ -211,6 +257,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiRequestStatusConstMeta =>
       const TaskConstMeta(debugName: "request_status", argNames: ["statePath"]);
+
+  @override
+  Future<void> crateApiSetRules({required String statePath, required Rules rules}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(statePath, serializer);
+          sse_encode_box_autoadd_rules(rules, serializer);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
+        constMeta: kCrateApiSetRulesConstMeta,
+        argValues: [statePath, rules],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSetRulesConstMeta =>
+      const TaskConstMeta(debugName: "set_rules", argNames: ["statePath", "rules"]);
 
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw) {
@@ -231,9 +298,62 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AppRule dco_decode_app_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return AppRule(app: dco_decode_String(arr[0]), minutes: dco_decode_u_32(arr[1]));
+  }
+
+  @protected
+  AppUse dco_decode_app_use(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return AppUse(app: dco_decode_String(arr[0]), seconds: dco_decode_i_64(arr[1]));
+  }
+
+  @protected
   bool dco_decode_bool(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as bool;
+  }
+
+  @protected
+  Rules dco_decode_box_autoadd_rules(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_rules(raw);
+  }
+
+  @protected
+  WebRule dco_decode_box_autoadd_web_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_web_rule(raw);
+  }
+
+  @protected
+  ChildHistory dco_decode_child_history(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3) throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return ChildHistory(
+      user: dco_decode_String(arr[0]),
+      days: dco_decode_list_day_use(arr[1]),
+      apps: dco_decode_list_app_use(arr[2]),
+    );
+  }
+
+  @protected
+  DayUse dco_decode_day_use(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4) throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return DayUse(
+      date: dco_decode_String(arr[0]),
+      usedS: dco_decode_i_64(arr[1]),
+      extraS: dco_decode_i_64(arr[2]),
+      limitS: dco_decode_i_64(arr[3]),
+    );
   }
 
   @protected
@@ -256,6 +376,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<String> dco_decode_list_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<AppRule> dco_decode_list_app_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_app_rule).toList();
+  }
+
+  @protected
+  List<AppUse> dco_decode_list_app_use(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_app_use).toList();
+  }
+
+  @protected
+  List<ChildHistory> dco_decode_list_child_history(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_child_history).toList();
+  }
+
+  @protected
+  List<DayUse> dco_decode_list_day_use(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_day_use).toList();
+  }
+
+  @protected
   List<Kid> dco_decode_list_kid(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_kid).toList();
@@ -265,6 +415,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<Rules> dco_decode_list_rules(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_rules).toList();
   }
 
   @protected
@@ -281,12 +437,46 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           reason: dco_decode_String(raw[4]),
         );
       case 2:
-        return Msg_Online();
+        return Msg_History(children: dco_decode_list_child_history(raw[1]));
       case 3:
+        return Msg_Rules(children: dco_decode_list_rules(raw[1]));
+      case 4:
+        return Msg_Notice(text: dco_decode_String(raw[1]));
+      case 5:
+        return Msg_Online();
+      case 6:
         return Msg_Problem(text: dco_decode_String(raw[1]));
       default:
         throw Exception("unreachable");
     }
+  }
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  WebRule? dco_decode_opt_box_autoadd_web_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_web_rule(raw);
+  }
+
+  @protected
+  Rules dco_decode_rules(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7) throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return Rules(
+      user: dco_decode_String(arr[0]),
+      schoolMinutes: dco_decode_u_32(arr[1]),
+      weekendMinutes: dco_decode_u_32(arr[2]),
+      schoolWindow: dco_decode_opt_String(arr[3]),
+      weekendWindow: dco_decode_opt_String(arr[4]),
+      apps: dco_decode_list_app_rule(arr[5]),
+      web: dco_decode_opt_box_autoadd_web_rule(arr[6]),
+    );
   }
 
   @protected
@@ -305,6 +495,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void dco_decode_unit(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return;
+  }
+
+  @protected
+  WebRule dco_decode_web_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return WebRule(safesearch: dco_decode_bool(arr[0]), block: dco_decode_list_String(arr[1]));
   }
 
   @protected
@@ -328,9 +526,56 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  AppRule sse_decode_app_rule(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_app = sse_decode_String(deserializer);
+    var var_minutes = sse_decode_u_32(deserializer);
+    return AppRule(app: var_app, minutes: var_minutes);
+  }
+
+  @protected
+  AppUse sse_decode_app_use(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_app = sse_decode_String(deserializer);
+    var var_seconds = sse_decode_i_64(deserializer);
+    return AppUse(app: var_app, seconds: var_seconds);
+  }
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  Rules sse_decode_box_autoadd_rules(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_rules(deserializer));
+  }
+
+  @protected
+  WebRule sse_decode_box_autoadd_web_rule(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_web_rule(deserializer));
+  }
+
+  @protected
+  ChildHistory sse_decode_child_history(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_user = sse_decode_String(deserializer);
+    var var_days = sse_decode_list_day_use(deserializer);
+    var var_apps = sse_decode_list_app_use(deserializer);
+    return ChildHistory(user: var_user, days: var_days, apps: var_apps);
+  }
+
+  @protected
+  DayUse sse_decode_day_use(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_date = sse_decode_String(deserializer);
+    var var_usedS = sse_decode_i_64(deserializer);
+    var var_extraS = sse_decode_i_64(deserializer);
+    var var_limitS = sse_decode_i_64(deserializer);
+    return DayUse(date: var_date, usedS: var_usedS, extraS: var_extraS, limitS: var_limitS);
   }
 
   @protected
@@ -347,6 +592,66 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_leftS = sse_decode_i_64(deserializer);
     var var_over = sse_decode_bool(deserializer);
     return Kid(user: var_user, usedS: var_usedS, leftS: var_leftS, over: var_over);
+  }
+
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <String>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<AppRule> sse_decode_list_app_rule(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <AppRule>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_app_rule(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<AppUse> sse_decode_list_app_use(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <AppUse>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_app_use(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<ChildHistory> sse_decode_list_child_history(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <ChildHistory>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_child_history(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<DayUse> sse_decode_list_day_use(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <DayUse>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_day_use(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -369,6 +674,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<Rules> sse_decode_list_rules(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Rules>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_rules(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   Msg sse_decode_msg(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -384,13 +701,65 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_reason = sse_decode_String(deserializer);
         return Msg_Request(id: var_id, user: var_user, minutes: var_minutes, reason: var_reason);
       case 2:
-        return Msg_Online();
+        var var_children = sse_decode_list_child_history(deserializer);
+        return Msg_History(children: var_children);
       case 3:
+        var var_children = sse_decode_list_rules(deserializer);
+        return Msg_Rules(children: var_children);
+      case 4:
+        var var_text = sse_decode_String(deserializer);
+        return Msg_Notice(text: var_text);
+      case 5:
+        return Msg_Online();
+      case 6:
         var var_text = sse_decode_String(deserializer);
         return Msg_Problem(text: var_text);
       default:
         throw UnimplementedError('');
     }
+  }
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  WebRule? sse_decode_opt_box_autoadd_web_rule(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_web_rule(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  Rules sse_decode_rules(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_user = sse_decode_String(deserializer);
+    var var_schoolMinutes = sse_decode_u_32(deserializer);
+    var var_weekendMinutes = sse_decode_u_32(deserializer);
+    var var_schoolWindow = sse_decode_opt_String(deserializer);
+    var var_weekendWindow = sse_decode_opt_String(deserializer);
+    var var_apps = sse_decode_list_app_rule(deserializer);
+    var var_web = sse_decode_opt_box_autoadd_web_rule(deserializer);
+    return Rules(
+      user: var_user,
+      schoolMinutes: var_schoolMinutes,
+      weekendMinutes: var_weekendMinutes,
+      schoolWindow: var_schoolWindow,
+      weekendWindow: var_weekendWindow,
+      apps: var_apps,
+      web: var_web,
+    );
   }
 
   @protected
@@ -408,6 +777,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_decode_unit(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+  }
+
+  @protected
+  WebRule sse_decode_web_rule(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_safesearch = sse_decode_bool(deserializer);
+    var var_block = sse_decode_list_String(deserializer);
+    return WebRule(safesearch: var_safesearch, block: var_block);
   }
 
   @protected
@@ -440,9 +817,52 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_app_rule(AppRule self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.app, serializer);
+    sse_encode_u_32(self.minutes, serializer);
+  }
+
+  @protected
+  void sse_encode_app_use(AppUse self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.app, serializer);
+    sse_encode_i_64(self.seconds, serializer);
+  }
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_rules(Rules self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_rules(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_web_rule(WebRule self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_web_rule(self, serializer);
+  }
+
+  @protected
+  void sse_encode_child_history(ChildHistory self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.user, serializer);
+    sse_encode_list_day_use(self.days, serializer);
+    sse_encode_list_app_use(self.apps, serializer);
+  }
+
+  @protected
+  void sse_encode_day_use(DayUse self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.date, serializer);
+    sse_encode_i_64(self.usedS, serializer);
+    sse_encode_i_64(self.extraS, serializer);
+    sse_encode_i_64(self.limitS, serializer);
   }
 
   @protected
@@ -458,6 +878,51 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_64(self.usedS, serializer);
     sse_encode_i_64(self.leftS, serializer);
     sse_encode_bool(self.over, serializer);
+  }
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_app_rule(List<AppRule> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_app_rule(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_app_use(List<AppUse> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_app_use(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_child_history(List<ChildHistory> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_child_history(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_day_use(List<DayUse> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_day_use(item, serializer);
+    }
   }
 
   @protected
@@ -477,6 +942,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_rules(List<Rules> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_rules(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_msg(Msg self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     switch (self) {
@@ -489,12 +963,53 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(user, serializer);
         sse_encode_u_32(minutes, serializer);
         sse_encode_String(reason, serializer);
-      case Msg_Online():
+      case Msg_History(children: final children):
         sse_encode_i_32(2, serializer);
-      case Msg_Problem(text: final text):
+        sse_encode_list_child_history(children, serializer);
+      case Msg_Rules(children: final children):
         sse_encode_i_32(3, serializer);
+        sse_encode_list_rules(children, serializer);
+      case Msg_Notice(text: final text):
+        sse_encode_i_32(4, serializer);
+        sse_encode_String(text, serializer);
+      case Msg_Online():
+        sse_encode_i_32(5, serializer);
+      case Msg_Problem(text: final text):
+        sse_encode_i_32(6, serializer);
         sse_encode_String(text, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_web_rule(WebRule? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_web_rule(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_rules(Rules self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.user, serializer);
+    sse_encode_u_32(self.schoolMinutes, serializer);
+    sse_encode_u_32(self.weekendMinutes, serializer);
+    sse_encode_opt_String(self.schoolWindow, serializer);
+    sse_encode_opt_String(self.weekendWindow, serializer);
+    sse_encode_list_app_rule(self.apps, serializer);
+    sse_encode_opt_box_autoadd_web_rule(self.web, serializer);
   }
 
   @protected
@@ -512,6 +1027,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_unit(void self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+  }
+
+  @protected
+  void sse_encode_web_rule(WebRule self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.safesearch, serializer);
+    sse_encode_list_String(self.block, serializer);
   }
 
   @protected

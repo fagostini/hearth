@@ -1,4 +1,6 @@
-# /etc/hearth/hearthd.toml — rules for hearthd (moves to the parent app in M6).
+# /etc/hearth/hearthd.toml — children, grace period and relay. On first start each
+# child's rules below are imported into the database; after that the parent app
+# edits them and this file only lists who the children are.
 # Admin accounts (sudo/wheel/admin group, or any sudo rights) are always ignored.
 # ntfy server for the parent's phone (self-hosted or https://ntfy.sh). Pair with: sudo hearthd pair
 # relay = "https://ntfy.example.org"

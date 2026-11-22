@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
@@ -8,6 +9,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'hub.dart';
 import 'main.dart';
 import 'model.dart';
+import 'src/rust/api.dart' as rust;
 
 // ---------- shared pieces ----------
 
@@ -596,8 +598,17 @@ class _RequestScreenState extends State<RequestScreen> {
 
 // ---------- Week ----------
 
+/// Pick one child. `names` are display names, `inks` their text colours.
 class ChildSwitch extends StatelessWidget {
-  const ChildSwitch({super.key, required this.selected, required this.onChanged});
+  const ChildSwitch({
+    super.key,
+    required this.names,
+    required this.inks,
+    required this.selected,
+    required this.onChanged,
+  });
+  final List<String> names;
+  final List<Color> inks;
   final int selected;
   final ValueChanged<int> onChanged;
 
@@ -608,7 +619,7 @@ class ChildSwitch extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final (i, c) in Demo.children.indexed)
+        for (final (i, n) in names.indexed)
           Semantics(
             selected: i == selected,
             button: true,
@@ -617,16 +628,45 @@ class ChildSwitch extends StatelessWidget {
               style: TextButton.styleFrom(
                 minimumSize: const Size(56, 36),
                 backgroundColor: i == selected ? C.surface : Colors.transparent,
-                foregroundColor: i == selected ? c.ink : C.soft,
+                foregroundColor: i == selected ? inks[i] : C.soft,
                 shape: const StadiumBorder(),
                 textStyle: body(13, weight: 600),
               ),
-              child: Text(c.name),
+              child: Text(n),
             ),
           ),
       ],
     ),
   );
+}
+
+/// "org.kde.konsole" -> "Konsole", "firefox_firefox" -> "Firefox".
+String appName(String id) {
+  final last = id.split('.').last.split('_').first;
+  return last.isEmpty ? id : last[0].toUpperCase() + last.substring(1);
+}
+
+/// One child's week, from the PC or the demo.
+class WeekData {
+  WeekData(this.user, this.days, this.apps);
+  final String user;
+  final List<Day> days;
+  final List<AppUse> apps;
+
+  static WeekData fromPc(rust.ChildHistory h) {
+    const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final days = [
+      for (final (i, d) in h.days.indexed)
+        Day(
+          letters[(DateTime.tryParse(d.date)?.weekday ?? 1) - 1],
+          d.usedS.toInt() ~/ 60,
+          d.extraS.toInt() ~/ 60,
+          d.limitS.toInt() ~/ 60,
+          today: i == h.days.length - 1,
+        ),
+    ];
+    return WeekData(h.user, days, [for (final a in h.apps) AppUse(appName(a.app), a.seconds.toInt() ~/ 60)]);
+  }
 }
 
 class WeekScreen extends StatefulWidget {
@@ -639,23 +679,55 @@ class _WeekScreenState extends State<WeekScreen> {
   int who = 0;
 
   @override
+  void initState() {
+    super.initState();
+    hub?.refreshHistory().catchError((Object _) {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = Demo.children[who];
-    final total = Demo.week.fold(0, (s, d) => s + d.used + d.extra);
-    final maxApp = Demo.apps.first.minutes;
+    final h = hub;
+    if (h == null) return _build(null);
+    return ListenableBuilder(listenable: h, builder: (_, _) => _build(h));
+  }
+
+  Widget _build(Hub? h) {
+    final live = h != null && h.history.isNotEmpty;
+    final weeks = live
+        ? [for (final x in h.history.values) WeekData.fromPc(x)]
+        : [for (final c in Demo.children) WeekData(c.name, Demo.week, Demo.apps)];
+    final colours = [
+      for (final (i, w) in weeks.indexed)
+        live ? h.paletteFor(w.user) : (Demo.children[i].color, Demo.children[i].tint, Demo.children[i].ink),
+    ];
+    final i = who.clamp(0, weeks.length - 1);
+    final week = weeks[i];
+    final (color, tint, ink) = colours[i];
+    final total = week.days.fold(0, (s, d) => s + d.used + d.extra);
+    final maxApp = week.apps.fold(1, (m, a) => math.max(m, a.minutes));
+    final barTint = Color.lerp(color, Colors.white, 0.55)!;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
         Header(
-          over: '16–22 November',
+          over: live ? 'Last 7 days' : 'Demo · 16–22 November',
           title: 'Week',
-          trailing: ChildSwitch(selected: who, onChanged: (i) => setState(() => who = i)),
+          trailing: weeks.length < 2
+              ? null
+              : ChildSwitch(
+                  names: [for (final w in weeks) live ? Hub.display(w.user) : w.user],
+                  inks: [for (final c in colours) c.$3],
+                  selected: i,
+                  onChanged: (n) => setState(() => who = n),
+                ),
         ),
         const SizedBox(height: 18),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (weeks.length < 2)
+                Text(live ? Hub.display(week.user) : week.user, style: display(18, weight: 700, color: ink)),
               Wrap(
                 crossAxisAlignment: WrapCrossAlignment.end,
                 spacing: 10,
@@ -668,14 +740,14 @@ class _WeekScreenState extends State<WeekScreen> {
                 ],
               ),
               const SizedBox(height: 14),
-              WeekChart(days: Demo.week, color: c.color, tint: Color.lerp(c.color, Colors.white, 0.55)!),
+              WeekChart(days: week.days, color: color, tint: barTint),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 16,
                 runSpacing: 6,
                 children: [
-                  _legend(Color.lerp(c.color, Colors.white, 0.55)!, 'Used'),
-                  _legend(c.color, 'Extra time you gave'),
+                  _legend(barTint, 'Used'),
+                  _legend(color, 'Extra time you gave'),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -695,7 +767,11 @@ class _WeekScreenState extends State<WeekScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Apps', style: display(18, weight: 700)),
-              for (final a in Demo.apps) ...[
+              if (week.apps.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text('Only apps with a limit are counted. Add one under Rules.', style: body(14, color: C.muted)),
+              ],
+              for (final a in week.apps) ...[
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -709,25 +785,27 @@ class _WeekScreenState extends State<WeekScreen> {
                   child: LinearProgressIndicator(
                     value: a.minutes / maxApp,
                     minHeight: 8,
-                    color: c.color,
-                    backgroundColor: c.tint,
+                    color: color,
+                    backgroundColor: tint,
                   ),
                 ),
               ],
             ],
           ),
         ),
-        const SizedBox(height: 14),
-        Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Blocked sites', style: display(18, weight: 700)),
-              const SizedBox(height: 8),
-              Text('23 attempts this week: tiktok.com 19, roblox.com 4', style: body(14, color: C.soft, height: 1.5)),
-            ],
+        if (!live) ...[
+          const SizedBox(height: 14),
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Blocked sites', style: display(18, weight: 700)),
+                const SizedBox(height: 8),
+                Text('23 attempts this week: tiktok.com 19, roblox.com 4', style: body(14, color: C.soft, height: 1.5)),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -746,15 +824,20 @@ class _WeekScreenState extends State<WeekScreen> {
   );
 }
 
-/// Bars to one scale: 180 min = full height. Each bar marks its own day's limit.
 class WeekChart extends StatelessWidget {
   const WeekChart({super.key, required this.days, required this.color, required this.tint});
   final List<Day> days;
   final Color color, tint;
-  static const maxMin = 180.0, h = 160.0;
+  static const h = 160.0;
 
   @override
   Widget build(BuildContext context) {
+    // Scale to the week's biggest bar or limit, at least 3 h; grid every 1, 2 or 4 h.
+    final peak = days.fold(180, (m, d) => math.max(m, math.max(d.used + d.extra, d.limit)));
+    final hours = (peak / 60).ceil();
+    final step = hours <= 4 ? 1 : (hours <= 8 ? 2 : 4);
+    final ticks = [for (var t = step; t <= hours; t += step) t];
+    final maxMin = hours * 60.0;
     double y(int m) => m / maxMin * h;
     return Semantics(
       label: 'Minutes per day: ${days.map((d) => '${d.label} ${d.used + d.extra}').join(', ')}',
@@ -770,7 +853,7 @@ class WeekChart extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  for (final hr in [1, 2, 3])
+                  for (final hr in ticks)
                     Positioned(
                       right: 4,
                       bottom: y(hr * 60) - 6,
@@ -783,7 +866,7 @@ class WeekChart extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  for (final hr in [1, 2, 3])
+                  for (final hr in ticks)
                     Positioned(
                       left: 0,
                       right: 0,
@@ -877,6 +960,48 @@ class WeekChart extends StatelessWidget {
 
 // ---------- Rules ----------
 
+rust.Rules _copy(
+  rust.Rules r, {
+  int? school,
+  int? weekend,
+  String? Function()? schoolWindow,
+  String? Function()? weekendWindow,
+  List<rust.AppRule>? apps,
+  rust.WebRule? Function()? web,
+}) => rust.Rules(
+  user: r.user,
+  schoolMinutes: school ?? r.schoolMinutes,
+  weekendMinutes: weekend ?? r.weekendMinutes,
+  schoolWindow: schoolWindow != null ? schoolWindow() : r.schoolWindow,
+  weekendWindow: weekendWindow != null ? weekendWindow() : r.weekendWindow,
+  apps: apps ?? r.apps,
+  web: web != null ? web() : r.web,
+);
+
+final _demoRules = [
+  rust.Rules(
+    user: 'Mia',
+    schoolMinutes: 120,
+    weekendMinutes: 180,
+    schoolWindow: '07:00-20:30',
+    weekendWindow: '08:00-21:30',
+    apps: [
+      rust.AppRule(app: 'minecraft', minutes: 60),
+      rust.AppRule(app: 'org.vinegarhq.Sober', minutes: 0),
+    ],
+    web: rust.WebRule(safesearch: true, block: ['tiktok.com', 'roblox.com']),
+  ),
+  rust.Rules(
+    user: 'Leo',
+    schoolMinutes: 120,
+    weekendMinutes: 150,
+    schoolWindow: '07:00-20:00',
+    weekendWindow: null,
+    apps: [],
+    web: null,
+  ),
+];
+
 class RulesScreen extends StatefulWidget {
   const RulesScreen({super.key});
   @override
@@ -885,31 +1010,98 @@ class RulesScreen extends StatefulWidget {
 
 class _RulesScreenState extends State<RulesScreen> {
   int who = 0;
-  int school = 120, weekend = 180;
-  bool safe = true;
+  final Map<String, rust.Rules> drafts = {}; // edits not yet confirmed by the PC
+  Timer? debounce;
+  String? saving; // user whose edit is waiting to be sent
+  final List<rust.Rules> demo = [..._demoRules];
+
+  @override
+  void dispose() {
+    debounce?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final c = Demo.children[who];
+    final h = hub;
+    if (h == null) return _build(null);
+    return ListenableBuilder(
+      listenable: h,
+      builder: (context, _) {
+        final n = h.notice;
+        if (n != null) {
+          h.notice = null;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(n)));
+          });
+        }
+        return _build(h);
+      },
+    );
+  }
+
+  /// Change a child's rules: on screen at once, sent to the PC a moment later so a row
+  /// of taps on + becomes one message.
+  void _edit(Hub? h, rust.Rules next) {
+    setState(() {
+      if (h == null || h.rules.isEmpty) {
+        demo[demo.indexWhere((r) => r.user == next.user)] = next;
+        return;
+      }
+      drafts[next.user] = next;
+      saving = next.user;
+    });
+    if (h == null || h.rules.isEmpty) return;
+    debounce?.cancel();
+    debounce = Timer(const Duration(milliseconds: 900), () async {
+      final d = drafts.remove(next.user);
+      if (d == null) return;
+      try {
+        await h.saveRules(d);
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Not saved: $e')));
+      } finally {
+        if (mounted) setState(() => saving = null);
+      }
+    });
+  }
+
+  Widget _build(Hub? h) {
+    final live = h != null && h.rules.isNotEmpty;
+    final all = live ? [for (final r in h.rules.values) drafts[r.user] ?? r] : demo;
+    final i = who.clamp(0, all.length - 1);
+    final r = all[i];
+    final (color, tint, ink) = live
+        ? h.paletteFor(r.user)
+        : (Demo.children[i].color, Demo.children[i].tint, Demo.children[i].ink);
+    final status = !live ? 'Demo · not connected to a PC' : (saving != null ? 'Saving…' : 'Saved on the family PC');
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
         Header(
-          over: 'Demo · saved on the family PC',
+          over: status,
           title: 'Rules',
-          trailing: ChildSwitch(selected: who, onChanged: (i) => setState(() => who = i)),
+          trailing: all.length < 2
+              ? null
+              : ChildSwitch(
+                  names: [for (final x in all) live ? Hub.display(x.user) : x.user],
+                  inks: [for (final x in all) live ? h.paletteFor(x.user).$3 : Demo.children[all.indexOf(x)].ink],
+                  selected: i,
+                  onChanged: (n) => setState(() => who = n),
+                ),
         ),
+        if (all.length < 2) Text(live ? Hub.display(r.user) : r.user, style: display(18, weight: 700, color: ink)),
         const SizedBox(height: 16),
         _section('Screen time a day', [
-          _stepper('School days', school, (v) => setState(() => school = v)),
+          _stepper('School days', r.schoolMinutes, (v) => _edit(h, _copy(r, school: v))),
           const SizedBox(height: 12),
-          _stepper('Weekends', weekend, (v) => setState(() => weekend = v)),
+          _stepper('Weekends', r.weekendMinutes, (v) => _edit(h, _copy(r, weekend: v))),
         ]),
         const SizedBox(height: 14),
         _section('Allowed hours', [
-          _window('School days', '07:00 – 20:30', 7, 20.5, c),
+          _window('School days', r.schoolWindow, color, (w) => _edit(h, _copy(r, schoolWindow: () => w))),
           const SizedBox(height: 12),
-          _window('Weekends', '08:00 – 21:30', 8, 21.5, c),
+          _window('Weekends', r.weekendWindow, color, (w) => _edit(h, _copy(r, weekendWindow: () => w))),
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -920,17 +1112,29 @@ class _RulesScreenState extends State<RulesScreen> {
         ]),
         const SizedBox(height: 14),
         _section('Apps', [
-          _row('Minecraft', Pill('1 h a day', bg: c.tint, fg: c.ink)),
-          const Divider(height: 1, color: Color(0xFFEEEFF5)),
-          _row('Firefox', const Pill('No limit', bg: Color(0xFFEEEFF5), fg: C.soft)),
-          const Divider(height: 1, color: Color(0xFFEEEFF5)),
-          _row('Sober (Roblox)', const Pill('Blocked', bg: C.ink, fg: Colors.white)),
+          if (r.apps.isEmpty)
+            Text('No app limits. Time in every app counts toward the daily total.', style: body(14, color: C.muted)),
+          for (final (n, a) in r.apps.indexed) ...[
+            if (n > 0) const Divider(height: 1, color: Color(0xFFEEEFF5)),
+            _row(
+              appName(a.app),
+              ActionChip(
+                label: Text(a.minutes == 0 ? 'Blocked' : '${hm(a.minutes)} a day'),
+                labelStyle: body(13, weight: 600, color: a.minutes == 0 ? Colors.white : ink),
+                backgroundColor: a.minutes == 0 ? C.ink : tint,
+                side: BorderSide.none,
+                shape: const StadiumBorder(),
+                tooltip: 'Change the limit for ${appName(a.app)}',
+                onPressed: () => _appLimit(h, r, a),
+              ),
+            ),
+          ],
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () {},
+              onPressed: () => _addApp(h, r),
               style: TextButton.styleFrom(
-                foregroundColor: c.ink,
+                foregroundColor: ink,
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(0, 44),
                 textStyle: body(14, weight: 600),
@@ -943,16 +1147,137 @@ class _RulesScreenState extends State<RulesScreen> {
         _section('Web', [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            value: safe,
-            onChanged: (v) => setState(() => safe = v),
+            value: r.web != null,
+            onChanged: (on) =>
+                _edit(h, _copy(r, web: () => on ? rust.WebRule(safesearch: true, block: const []) : null)),
             activeTrackColor: const Color(0xFF1F9A8A),
-            title: Text('SafeSearch', style: body(15)),
-            subtitle: Text('Google, YouTube, Bing, DuckDuckGo', style: body(12, color: C.muted)),
+            title: Text('Filter websites', style: body(15)),
+            subtitle: Text('Blocks sites below and secure DNS tricks', style: body(12, color: C.muted)),
           ),
-          const Divider(height: 1, color: Color(0xFFEEEFF5)),
-          _row('Blocked sites', Text('tiktok.com, roblox.com', style: body(14, color: C.soft))),
+          if (r.web case final w?) ...[
+            const Divider(height: 1, color: Color(0xFFEEEFF5)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: w.safesearch,
+              onChanged: (v) => _edit(
+                h,
+                _copy(
+                  r,
+                  web: () => rust.WebRule(safesearch: v, block: w.block),
+                ),
+              ),
+              activeTrackColor: const Color(0xFF1F9A8A),
+              title: Text('SafeSearch', style: body(15)),
+              subtitle: Text('Google, YouTube, Bing, DuckDuckGo', style: body(12, color: C.muted)),
+            ),
+            const Divider(height: 1, color: Color(0xFFEEEFF5)),
+            const SizedBox(height: 10),
+            Text('Blocked sites', style: body(15)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final d in w.block)
+                  InputChip(
+                    label: Text(d),
+                    labelStyle: body(13, weight: 500),
+                    deleteButtonTooltipMessage: 'Unblock $d',
+                    onDeleted: () => _edit(
+                      h,
+                      _copy(
+                        r,
+                        web: () => rust.WebRule(safesearch: w.safesearch, block: [...w.block]..remove(d)),
+                      ),
+                    ),
+                  ),
+                ActionChip(
+                  avatar: const Icon(Icons.add, size: 18),
+                  label: const Text('Block a site'),
+                  onPressed: () => _addSite(h, r, w),
+                ),
+              ],
+            ),
+          ],
         ]),
       ],
+    );
+  }
+
+  Future<void> _appLimit(Hub? h, rust.Rules r, rust.AppRule a) async {
+    const choices = [(30, '30 min a day'), (60, '1 h a day'), (120, '2 h a day'), (0, 'Blocked'), (-1, 'Remove limit')];
+    final pick = await showModalBottomSheet<int>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(appName(a.app), style: display(20, weight: 700)),
+            ),
+            for (final (m, label) in choices)
+              ListTile(title: Text(label), selected: m == a.minutes, onTap: () => Navigator.of(ctx).pop(m)),
+          ],
+        ),
+      ),
+    );
+    if (pick == null) return;
+    final apps = [
+      for (final x in r.apps)
+        if (x.app != a.app) x else if (pick >= 0) rust.AppRule(app: x.app, minutes: pick),
+    ];
+    _edit(h, _copy(r, apps: apps));
+  }
+
+  Future<String?> _ask(String title, String label, String hint) {
+    final field = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: field,
+          autofocus: true,
+          autocorrect: false,
+          decoration: InputDecoration(labelText: label, hintText: hint, border: const OutlineInputBorder()),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(field.text), child: const Text('Add')),
+        ],
+      ),
+    );
+  }
+
+  /// ponytail: typed desktop app ID; a list of the PC's installed apps would be friendlier.
+  Future<void> _addApp(Hub? h, rust.Rules r) async {
+    final id = (await _ask('Add an app', 'App ID on the PC', 'org.mozilla.firefox'))?.trim();
+    if (id == null || id.isEmpty || r.apps.any((a) => a.app == id)) return;
+    _edit(
+      h,
+      _copy(
+        r,
+        apps: [
+          ...r.apps,
+          rust.AppRule(app: id, minutes: 60),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addSite(Hub? h, rust.Rules r, rust.WebRule w) async {
+    var d = (await _ask('Block a site', 'Website', 'example.com'))?.trim().toLowerCase();
+    if (d == null || d.isEmpty) return;
+    d = d.replaceFirst(RegExp(r'^https?://'), '').replaceFirst(RegExp(r'^www\.'), '').split('/').first;
+    if (w.block.contains(d)) return;
+    _edit(
+      h,
+      _copy(
+        r,
+        web: () => rust.WebRule(safesearch: w.safesearch, block: [...w.block, d!]),
+      ),
     );
   }
 
@@ -982,7 +1307,7 @@ class _RulesScreenState extends State<RulesScreen> {
       Expanded(child: Text(label, style: body(15))),
       IconButton.filledTonal(
         tooltip: '15 minutes less, $label',
-        onPressed: value > 15 ? () => set(value - 15) : null,
+        onPressed: value >= 15 ? () => set(value - 15) : null,
         icon: const Icon(Icons.remove),
         style: IconButton.styleFrom(
           backgroundColor: const Color(0xFFEEEFF5),
@@ -992,11 +1317,11 @@ class _RulesScreenState extends State<RulesScreen> {
       ),
       SizedBox(
         width: 72,
-        child: Text(hm(value), textAlign: TextAlign.center, style: body(17, weight: 600)),
+        child: Text(value == 0 ? 'None' : hm(value), textAlign: TextAlign.center, style: body(17, weight: 600)),
       ),
       IconButton.filledTonal(
         tooltip: '15 minutes more, $label',
-        onPressed: value < 600 ? () => set(value + 15) : null,
+        onPressed: value <= 1440 - 15 ? () => set(value + 15) : null,
         icon: const Icon(Icons.add),
         style: IconButton.styleFrom(
           backgroundColor: const Color(0xFFEEEFF5),
@@ -1007,37 +1332,79 @@ class _RulesScreenState extends State<RulesScreen> {
     ],
   );
 
-  Widget _window(String label, String text, double from, double to, Child c) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Row(
-        children: [
-          Expanded(child: Text(label, style: body(14))),
-          Text(text, style: body(14, weight: 600)),
-        ],
-      ),
-      const SizedBox(height: 6),
-      LayoutBuilder(
-        builder: (_, box) => Container(
-          height: 10,
-          decoration: BoxDecoration(color: const Color(0xFFEEEFF5), borderRadius: BorderRadius.circular(5)),
-          child: Stack(
-            children: [
-              Positioned(
-                left: box.maxWidth * from / 24,
-                width: box.maxWidth * (to - from) / 24,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  decoration: BoxDecoration(color: c.color, borderRadius: BorderRadius.circular(5)),
+  static double _hours(String hhmm) {
+    final p = hhmm.split(':');
+    return int.parse(p[0]) + int.parse(p[1]) / 60;
+  }
+
+  static String _fmt(TimeOfDay t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  /// Tap to change: pick a start and an end, or clear to allow any time.
+  Widget _window(String label, String? window, Color color, ValueChanged<String?> set) {
+    final parts = window?.split('-');
+    final from = parts == null ? 0.0 : _hours(parts[0]), to = parts == null ? 24.0 : _hours(parts[1]);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () async {
+        TimeOfDay t(String s) => TimeOfDay(hour: int.parse(s.split(':')[0]), minute: int.parse(s.split(':')[1]));
+        final start = await showTimePicker(
+          context: context,
+          helpText: '$label: allowed from',
+          initialTime: parts == null ? const TimeOfDay(hour: 7, minute: 0) : t(parts[0]),
+        );
+        if (start == null || !mounted) return;
+        final end = await showTimePicker(
+          context: context,
+          helpText: '$label: allowed until',
+          initialTime: parts == null ? const TimeOfDay(hour: 20, minute: 0) : t(parts[1]),
+        );
+        if (end == null) return;
+        if (end.hour * 60 + end.minute <= start.hour * 60 + start.minute) {
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('The end has to be after the start, on the same day.')));
+          }
+          return;
+        }
+        set('${_fmt(start)}-${_fmt(end)}');
+      },
+      onLongPress: () => set(null),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(label, style: body(14))),
+                Text(window == null ? 'Any time' : window.replaceFirst('-', ' – '), style: body(14, weight: 600)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            LayoutBuilder(
+              builder: (_, box) => Container(
+                height: 10,
+                decoration: BoxDecoration(color: const Color(0xFFEEEFF5), borderRadius: BorderRadius.circular(5)),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: box.maxWidth * from / 24,
+                      width: box.maxWidth * (to - from) / 24,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(5)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    ],
-  );
+    );
+  }
 }
 
 // ---------- Pair ----------

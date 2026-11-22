@@ -2,12 +2,11 @@
 //! service (systemd DynamicUser), so DNS parsing never happens as root.
 //! nftables (installed by hearthd, see `nft_rules`) redirects each child's port-53
 //! traffic to that child's port; the port is how we know whose query it is.
-use crate::config::{ChildRule, Config};
 use hickory_proto::{
     op::{Message, ResponseCode},
     rr::{rdata::CNAME, Name, RData, Record},
 };
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, UdpSocket},
@@ -23,10 +22,33 @@ pub fn port(uid: u32) -> u16 {
 /// Firefox checks this name and turns its own DNS-over-HTTPS off if it doesn't resolve.
 const DOH_CANARY: &str = "use-application-dns.net";
 
+#[derive(Clone)]
 pub struct Policy {
     pub user: String,
     pub block: Vec<String>,
     pub safesearch: bool,
+}
+
+/// One child's web rules as hearthd hands them over (/run/hearth/web.json, 0644: the
+/// unprivileged resolver can read it; it holds blocklists, nothing secret).
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq)]
+pub struct WebPolicy {
+    pub user: String,
+    pub uid: u32,
+    pub safesearch: bool,
+    pub block: Vec<String>,
+}
+
+pub fn write_policies(path: &std::path::Path, p: &[WebPolicy]) -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let tmp = path.with_extension("tmp");
+    std::fs::write(&tmp, serde_json::to_vec(p)?)?;
+    std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o644))?;
+    std::fs::rename(tmp, path)?;
+    Ok(())
 }
 
 pub enum Verdict {
@@ -119,7 +141,7 @@ pub fn upstream(resolv_conf: &str) -> Option<SocketAddr> {
     })
 }
 
-async fn serve(policy: Arc<Policy>, port: u16, upstream: SocketAddr) -> anyhow::Result<()> {
+async fn serve(policy: Shared, port: u16, upstream: SocketAddr) -> anyhow::Result<()> {
     for ip in ["127.0.0.1", "::1"] {
         let addr = SocketAddr::new(ip.parse()?, port);
         let udp = Arc::new(UdpSocket::bind(addr).await?);
@@ -130,7 +152,8 @@ async fn serve(policy: Arc<Policy>, port: u16, upstream: SocketAddr) -> anyhow::
                 let Ok((n, from)) = udp.recv_from(&mut buf).await else { continue };
                 let (udp, p, pkt) = (udp.clone(), p.clone(), buf[..n].to_vec());
                 tokio::spawn(async move {
-                    if let Some(r) = answer(&p, upstream, &pkt).await {
+                    let snapshot = p.read().unwrap().clone();
+                    if let Some(r) = answer(&snapshot, upstream, &pkt).await {
                         let _ = udp.send_to(&r, from).await;
                     }
                 });
@@ -152,7 +175,8 @@ async fn serve(policy: Arc<Policy>, port: u16, upstream: SocketAddr) -> anyhow::
                         std::io::Result::Ok(pkt)
                     };
                     let Ok(Ok(pkt)) = tokio::time::timeout(Duration::from_secs(5), read).await else { return };
-                    if let Some(r) = answer(&p, upstream, &pkt).await {
+                    let snapshot = p.read().unwrap().clone();
+                    if let Some(r) = answer(&snapshot, upstream, &pkt).await {
                         let _ = s.write_all(&(r.len() as u16).to_be_bytes()).await;
                         let _ = s.write_all(&r).await;
                     }
@@ -163,21 +187,47 @@ async fn serve(policy: Arc<Policy>, port: u16, upstream: SocketAddr) -> anyhow::
     Ok(())
 }
 
-pub async fn run(_cfg: Config, children: Vec<(ChildRule, u32)>) -> anyhow::Result<()> {
+type Shared = Arc<std::sync::RwLock<Policy>>;
+
+/// Serve every child in hearthd's web.json; re-read it every 3 s so rule changes from
+/// the phone apply without a restart. Children who lose their web rules keep a listener,
+/// but hearthd stops redirecting their traffic to it.
+pub async fn run(path: PathBuf) -> anyhow::Result<()> {
     let up = upstream(&std::fs::read_to_string("/etc/resolv.conf")?)
         .ok_or_else(|| anyhow::anyhow!("no nameserver in /etc/resolv.conf"))?;
-    for (r, uid) in children {
-        let Some(web) = r.web else { continue };
-        let policy = Arc::new(Policy {
-            user: r.user.clone(),
-            block: web.block.iter().map(|d| d.trim_end_matches('.').to_ascii_lowercase()).collect(),
-            safesearch: web.safesearch,
-        });
-        serve(policy, port(uid), up).await?;
-        info!(user = r.user, uid, port = port(uid), %up, "resolver listening");
+    let mut live: HashMap<u32, Shared> = HashMap::new();
+    let mut last = None;
+    loop {
+        match std::fs::read(&path) {
+            Ok(bytes) if last.as_ref() != Some(&bytes) => match serde_json::from_slice::<Vec<WebPolicy>>(&bytes) {
+                Ok(list) => {
+                    for w in list {
+                        let p = Policy {
+                            user: w.user.clone(),
+                            block: w.block.iter().map(|d| d.trim_end_matches('.').to_ascii_lowercase()).collect(),
+                            safesearch: w.safesearch,
+                        };
+                        match live.get(&w.uid) {
+                            Some(shared) => *shared.write().unwrap() = p,
+                            None => {
+                                let shared = Arc::new(std::sync::RwLock::new(p));
+                                serve(shared.clone(), port(w.uid), up).await?;
+                                live.insert(w.uid, shared);
+                                info!(user = w.user, uid = w.uid, port = port(w.uid), %up, "resolver listening");
+                            }
+                        }
+                    }
+                    info!(children = live.len(), "web rules loaded");
+                    last = Some(bytes);
+                }
+                Err(e) => warn!(%e, "web.json unreadable, keeping old rules"),
+            },
+            Ok(_) => {}
+            Err(_) if last.is_none() => {} // hearthd hasn't written it yet
+            Err(e) => warn!(%e, "web.json missing, keeping old rules"),
+        }
+        tokio::time::sleep(Duration::from_secs(3)).await;
     }
-    std::future::pending::<()>().await;
-    Ok(())
 }
 
 /// nftables ruleset for children with web rules: redirect their DNS (any server, UDP

@@ -22,6 +22,7 @@ const FORCE_AFTER: Duration = Duration::from_secs(10);
 struct Child {
     user: String,
     uid: u32,
+    rules: hearth_core::Rules,
     days: [config::Day; 7],
     used: Duration,
     /// Daily app limits (app ID -> limit) and today's use per app.
@@ -35,6 +36,55 @@ struct Child {
     pending: Option<(String, u32, String)>,
     /// Latest answer shown to the child: (counter, text).
     answer: (u32, String),
+}
+
+impl Child {
+    /// Switch to new rules (from the database or a phone). Checks them first; on error
+    /// nothing changes.
+    fn set_rules(&mut self, rules: hearth_core::Rules) -> anyhow::Result<()> {
+        self.days = config::days_from(&rules)?;
+        self.app_limits = rules.apps.iter().map(|a| (a.app.clone(), Duration::from_secs(a.minutes as u64 * 60))).collect();
+        self.rules = rules;
+        Ok(())
+    }
+}
+
+/// Hand the web rules to the resolver (hearth-dns runs unprivileged and can't read the
+/// database) and point the firewall at the children who have them.
+async fn apply_web(children: &[Child], path: &std::path::Path) {
+    let web: Vec<dns::WebPolicy> = children
+        .iter()
+        .filter_map(|c| {
+            let w = c.rules.web.as_ref()?;
+            Some(dns::WebPolicy { user: c.user.clone(), uid: c.uid, safesearch: w.safesearch, block: w.block.clone() })
+        })
+        .collect();
+    if let Err(e) = dns::write_policies(path, &web) {
+        warn!(%e, "web rules not written: filtering keeps its old rules");
+    }
+    dns::apply_nft(&web.iter().map(|w| w.uid).collect::<Vec<_>>()).await;
+}
+
+/// The last 7 days per child, for the phone's week view.
+fn history_body(children: &[Child], store: &store::Store) -> anyhow::Result<hearth_core::Body> {
+    let today = chrono::Local::now().date_naive();
+    let from = (today - chrono::Days::new(6)).to_string();
+    let mut out = Vec::new();
+    for c in children {
+        let rows = store.days_since(c.uid, &from)?;
+        let mut days = Vec::new();
+        for i in (0..7).rev() {
+            let date = today - chrono::Days::new(i);
+            let key = date.to_string();
+            let (used, extra) = rows.iter().find(|r| r.0 == key).map_or((0, 0), |r| (r.1, r.2));
+            // ponytail: limit from today's rules; store past limits if rules change often.
+            let limit = c.days[date.weekday().num_days_from_monday() as usize].minutes as i64 * 60;
+            days.push(hearth_core::DayUse { date: key, used_s: used, extra_s: extra, limit_s: limit });
+        }
+        let apps = store.apps_since(c.uid, &from)?.into_iter().map(|(app, seconds)| hearth_core::AppUse { app, seconds }).collect();
+        out.push(hearth_core::ChildHistory { user: c.user.clone(), days, apps });
+    }
+    Ok(hearth_core::Body::History { children: out })
 }
 
 /// Today's status of every child, for the parent's phone.
@@ -89,14 +139,12 @@ async fn main() -> anyhow::Result<()> {
     let cfg: config::Config = toml::from_str(&fs::read_to_string(&config_path).with_context(|| config_path.clone())?)?;
     let passwd = fs::read_to_string("/etc/passwd")?;
     if env::args().nth(1).as_deref() == Some("dns") {
-        // Unprivileged resolver service. Admin checks happen in the root daemon,
-        // which only redirects children that passed them.
-        let kids = cfg.child.iter().filter_map(|r| Some((r.clone(), config::uid_of(&passwd, &r.user)?))).collect();
-        return dns::run(cfg, kids).await;
+        // Unprivileged resolver service: reads only the web rules hearthd hands over.
+        return dns::run(PathBuf::from(env::var("HEARTH_WEB").unwrap_or("/run/hearth/web.json".into()))).await;
     }
     let grace = Duration::from_secs(cfg.grace_seconds);
     let group = fs::read_to_string("/etc/group")?;
-    let mut filtered = Vec::new();
+
     let store = store::Store::open(&db_path)?;
     let mut day = today();
 
@@ -111,19 +159,39 @@ async fn main() -> anyhow::Result<()> {
             warn!(user = r.user, "admin account, rule ignored");
             continue;
         }
-        if r.web.is_some() {
-            filtered.push(uid);
-        }
-        let days = r.days().with_context(|| format!("rule for {}", r.user))?;
+        // Rules: from the database once imported; the TOML only seeds the first run.
+        let rules = match store.load_rules(&r.user)? {
+            Some(saved) => saved,
+            None => {
+                let imported = r.to_rules().with_context(|| format!("rule for {}", r.user))?;
+                store.save_rules(&imported)?;
+                info!(user = r.user, "rules imported from the config file");
+                imported
+            }
+        };
         let used = Duration::from_secs(store.load(&day, uid)?);
-        info!(user = r.user, uid, limit_min = r.daily_minutes, allowed = r.allowed, used_s = used.as_secs(), "child");
-        let app_limits = r.apps.iter().map(|(a, m)| (a.clone(), Duration::from_secs(m * 60))).collect();
+        info!(user = r.user, uid, school_min = rules.school_minutes, weekend_min = rules.weekend_minutes, used_s = used.as_secs(), "child");
         let app_used = store.load_apps(&day, uid)?.into_iter().map(|(a, s)| (a, Duration::from_secs(s))).collect();
         let bonus = Duration::from_secs(store.load_bonus(&day, uid)?);
-        children.push(Child { user: r.user, uid, days, used, app_limits, app_used, over_since: None, bonus, pending: None, answer: (0, String::new()) });
+        let mut c = Child {
+            user: r.user,
+            uid,
+            days: Default::default(),
+            rules: Default::default(),
+            used,
+            app_limits: HashMap::new(),
+            app_used,
+            over_since: None,
+            bonus,
+            pending: None,
+            answer: (0, String::new()),
+        };
+        c.set_rules(rules).with_context(|| format!("saved rules for {}", c.user))?;
+        children.push(c);
     }
     let uids: Vec<u32> = children.iter().map(|c| c.uid).collect();
-    dns::apply_nft(&filtered).await;
+    let web_path = PathBuf::from(env::var("HEARTH_WEB").unwrap_or("/run/hearth/web.json".into()));
+    apply_web(&children, &web_path).await;
 
     let activity = activity::Activity::default();
     tokio::spawn(activity.clone().watch());
@@ -190,6 +258,31 @@ async fn main() -> anyhow::Result<()> {
             Some(text) = relay_rx.recv() => {
                 let Some(r) = relay.as_mut() else { continue };
                 match r.receive(&text) {
+                    Some(hearth_core::Body::GetRules) => {
+                        r.broadcast(hearth_core::Body::Rules { children: children.iter().map(|c| c.rules.clone()).collect() });
+                    }
+                    Some(hearth_core::Body::GetHistory) => match history_body(&children, &store) {
+                        Ok(h) => r.broadcast(h),
+                        Err(e) => warn!(%e, "history query failed"),
+                    },
+                    Some(hearth_core::Body::SetRules { rules }) => {
+                        let res = match children.iter_mut().find(|c| c.user == rules.user) {
+                            None => Err(anyhow::anyhow!("no child called {}", rules.user)),
+                            Some(c) => c.set_rules(rules.clone()).and_then(|()| store.save_rules(&rules)),
+                        };
+                        match res {
+                            Ok(()) => {
+                                info!(user = rules.user, "rules changed from the phone");
+                                apply_web(&children, &web_path).await;
+                            }
+                            Err(e) => {
+                                warn!(user = rules.user, %e, "rules from the phone refused");
+                                r.broadcast(hearth_core::Body::Notice { text: format!("Rules not changed: {e}") });
+                            }
+                        }
+                        // Always answer with what is in force now, so the app shows the truth.
+                        r.broadcast(hearth_core::Body::Rules { children: children.iter().map(|c| c.rules.clone()).collect() });
+                    }
                     Some(hearth_core::Body::GetStatus) => {
                         r.broadcast(status_body(&children, &status));
                         for c in &children {

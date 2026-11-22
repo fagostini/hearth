@@ -33,7 +33,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  AppRule dco_decode_app_rule(dynamic raw);
+
+  @protected
+  AppUse dco_decode_app_use(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
+
+  @protected
+  Rules dco_decode_box_autoadd_rules(dynamic raw);
+
+  @protected
+  WebRule dco_decode_box_autoadd_web_rule(dynamic raw);
+
+  @protected
+  ChildHistory dco_decode_child_history(dynamic raw);
+
+  @protected
+  DayUse dco_decode_day_use(dynamic raw);
 
   @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
@@ -42,13 +60,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Kid dco_decode_kid(dynamic raw);
 
   @protected
+  List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<AppRule> dco_decode_list_app_rule(dynamic raw);
+
+  @protected
+  List<AppUse> dco_decode_list_app_use(dynamic raw);
+
+  @protected
+  List<ChildHistory> dco_decode_list_child_history(dynamic raw);
+
+  @protected
+  List<DayUse> dco_decode_list_day_use(dynamic raw);
+
+  @protected
   List<Kid> dco_decode_list_kid(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<Rules> dco_decode_list_rules(dynamic raw);
+
+  @protected
   Msg dco_decode_msg(dynamic raw);
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  WebRule? dco_decode_opt_box_autoadd_web_rule(dynamic raw);
+
+  @protected
+  Rules dco_decode_rules(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -60,6 +105,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  WebRule dco_decode_web_rule(dynamic raw);
+
+  @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
@@ -69,7 +117,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  AppRule sse_decode_app_rule(SseDeserializer deserializer);
+
+  @protected
+  AppUse sse_decode_app_use(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  Rules sse_decode_box_autoadd_rules(SseDeserializer deserializer);
+
+  @protected
+  WebRule sse_decode_box_autoadd_web_rule(SseDeserializer deserializer);
+
+  @protected
+  ChildHistory sse_decode_child_history(SseDeserializer deserializer);
+
+  @protected
+  DayUse sse_decode_day_use(SseDeserializer deserializer);
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
@@ -78,13 +144,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Kid sse_decode_kid(SseDeserializer deserializer);
 
   @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<AppRule> sse_decode_list_app_rule(SseDeserializer deserializer);
+
+  @protected
+  List<AppUse> sse_decode_list_app_use(SseDeserializer deserializer);
+
+  @protected
+  List<ChildHistory> sse_decode_list_child_history(SseDeserializer deserializer);
+
+  @protected
+  List<DayUse> sse_decode_list_day_use(SseDeserializer deserializer);
+
+  @protected
   List<Kid> sse_decode_list_kid(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<Rules> sse_decode_list_rules(SseDeserializer deserializer);
+
+  @protected
   Msg sse_decode_msg(SseDeserializer deserializer);
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  WebRule? sse_decode_opt_box_autoadd_web_rule(SseDeserializer deserializer);
+
+  @protected
+  Rules sse_decode_rules(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -94,6 +187,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
+
+  @protected
+  WebRule sse_decode_web_rule(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -108,7 +204,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_app_rule(AppRule self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_app_use(AppUse self, SseSerializer serializer);
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_rules(Rules self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_web_rule(WebRule self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_child_history(ChildHistory self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_day_use(DayUse self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
@@ -117,13 +231,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_kid(Kid self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_app_rule(List<AppRule> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_app_use(List<AppUse> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_child_history(List<ChildHistory> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_day_use(List<DayUse> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_kid(List<Kid> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(Uint8List self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_rules(List<Rules> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_msg(Msg self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_web_rule(WebRule? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_rules(Rules self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
@@ -133,6 +274,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_web_rule(WebRule self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);

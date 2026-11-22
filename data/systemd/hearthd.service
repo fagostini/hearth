@@ -8,6 +8,10 @@ ExecStart=/usr/bin/hearthd
 Restart=always
 StateDirectory=hearth
 StateDirectoryMode=0700
+# web.json for hearth-dns (unprivileged), see dns.rs
+RuntimeDirectory=hearth
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes

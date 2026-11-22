@@ -25,6 +25,11 @@ class Hub extends ChangeNotifier {
   bool get paired => rust.isPaired(statePath: statePath);
 
   List<Child>? children; // null = no status yet
+  final Map<String, rust.Rules> rules = {}; // by Linux username
+  final Map<String, rust.ChildHistory> history = {};
+
+  /// A message from the PC for the parent (e.g. a refused rule change). Shown once.
+  String? notice;
   final List<TimeRequest> requests = [];
   String? problem;
   StreamSubscription<rust.Msg>? _sub;
@@ -42,11 +47,13 @@ class Hub extends ChangeNotifier {
             notifyListeners();
           },
         );
-    // Ask for a fresh status right away (the PC only sends one on changes otherwise).
-    rust.requestStatus(statePath: statePath).catchError((Object e) {
-      problem = '$e';
-      notifyListeners();
-    });
+    // Ask for everything right away (the PC only sends on changes otherwise).
+    for (final ask in [rust.requestStatus, rust.requestRules, rust.requestHistory]) {
+      ask(statePath: statePath).catchError((Object e) {
+        problem = '$e';
+        notifyListeners();
+      });
+    }
   }
 
   void _on(rust.Msg m) {
@@ -62,6 +69,18 @@ class Hub extends ChangeNotifier {
           0,
           TimeRequest(id: id, child: kid, minutes: minutes, reason: reason, lockedAt: '', bedtime: ''),
         );
+      case rust.Msg_History(:final children):
+        problem = null;
+        for (final h in children) {
+          history[h.user] = h;
+        }
+      case rust.Msg_Rules(:final children):
+        problem = null;
+        for (final r in children) {
+          rules[r.user] = r;
+        }
+      case rust.Msg_Notice(:final text):
+        notice = text;
       case rust.Msg_Online():
         problem = null;
       case rust.Msg_Problem(:final text):
@@ -75,6 +94,21 @@ class Hub extends ChangeNotifier {
     await rust.pair(statePath: statePath, qr: code, phoneName: "Parent's phone");
     start();
     notifyListeners();
+  }
+
+  Future<void> refreshHistory() => rust.requestHistory(statePath: statePath);
+
+  /// Send a child's new rules. The PC answers with the rules in force (or a notice).
+  Future<void> saveRules(rust.Rules r) async {
+    rules[r.user] = r;
+    notifyListeners();
+    await rust.setRules(statePath: statePath, rules: r);
+  }
+
+  /// Colour set for a child, stable across screens: by position in the PC's list.
+  (Color, Color, Color) paletteFor(String user) {
+    final i = rules.keys.toList().indexOf(user);
+    return palette[(i < 0 ? 0 : i) % palette.length];
   }
 
   /// Answer a request; removes it from the list once sent.
@@ -111,6 +145,7 @@ class Hub extends ChangeNotifier {
 
   /// Linux usernames are lower case ("mia"); show "Mia".
   /// ponytail: a display name per child comes with editable rules.
+  static String display(String user) => _display(user);
   static String _display(String user) => user.isEmpty ? user : user[0].toUpperCase() + user.substring(1);
 
   /// Signature colours per child, in order: (colour, tint, ink on tint).

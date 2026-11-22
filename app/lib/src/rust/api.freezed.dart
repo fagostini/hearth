@@ -56,12 +56,15 @@ extension MsgPatterns on Msg {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( Msg_Status value)?  status,TResult Function( Msg_Request value)?  request,TResult Function( Msg_Online value)?  online,TResult Function( Msg_Problem value)?  problem,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( Msg_Status value)?  status,TResult Function( Msg_Request value)?  request,TResult Function( Msg_History value)?  history,TResult Function( Msg_Rules value)?  rules,TResult Function( Msg_Notice value)?  notice,TResult Function( Msg_Online value)?  online,TResult Function( Msg_Problem value)?  problem,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case Msg_Status() when status != null:
 return status(_that);case Msg_Request() when request != null:
-return request(_that);case Msg_Online() when online != null:
+return request(_that);case Msg_History() when history != null:
+return history(_that);case Msg_Rules() when rules != null:
+return rules(_that);case Msg_Notice() when notice != null:
+return notice(_that);case Msg_Online() when online != null:
 return online(_that);case Msg_Problem() when problem != null:
 return problem(_that);case _:
   return orElse();
@@ -81,12 +84,15 @@ return problem(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( Msg_Status value)  status,required TResult Function( Msg_Request value)  request,required TResult Function( Msg_Online value)  online,required TResult Function( Msg_Problem value)  problem,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( Msg_Status value)  status,required TResult Function( Msg_Request value)  request,required TResult Function( Msg_History value)  history,required TResult Function( Msg_Rules value)  rules,required TResult Function( Msg_Notice value)  notice,required TResult Function( Msg_Online value)  online,required TResult Function( Msg_Problem value)  problem,}){
 final _that = this;
 switch (_that) {
 case Msg_Status():
 return status(_that);case Msg_Request():
-return request(_that);case Msg_Online():
+return request(_that);case Msg_History():
+return history(_that);case Msg_Rules():
+return rules(_that);case Msg_Notice():
+return notice(_that);case Msg_Online():
 return online(_that);case Msg_Problem():
 return problem(_that);}
 }
@@ -102,12 +108,15 @@ return problem(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( Msg_Status value)?  status,TResult? Function( Msg_Request value)?  request,TResult? Function( Msg_Online value)?  online,TResult? Function( Msg_Problem value)?  problem,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( Msg_Status value)?  status,TResult? Function( Msg_Request value)?  request,TResult? Function( Msg_History value)?  history,TResult? Function( Msg_Rules value)?  rules,TResult? Function( Msg_Notice value)?  notice,TResult? Function( Msg_Online value)?  online,TResult? Function( Msg_Problem value)?  problem,}){
 final _that = this;
 switch (_that) {
 case Msg_Status() when status != null:
 return status(_that);case Msg_Request() when request != null:
-return request(_that);case Msg_Online() when online != null:
+return request(_that);case Msg_History() when history != null:
+return history(_that);case Msg_Rules() when rules != null:
+return rules(_that);case Msg_Notice() when notice != null:
+return notice(_that);case Msg_Online() when online != null:
 return online(_that);case Msg_Problem() when problem != null:
 return problem(_that);case _:
   return null;
@@ -126,11 +135,14 @@ return problem(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<Kid> children)?  status,TResult Function( String id,  String user,  int minutes,  String reason)?  request,TResult Function()?  online,TResult Function( String text)?  problem,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<Kid> children)?  status,TResult Function( String id,  String user,  int minutes,  String reason)?  request,TResult Function( List<ChildHistory> children)?  history,TResult Function( List<Rules> children)?  rules,TResult Function( String text)?  notice,TResult Function()?  online,TResult Function( String text)?  problem,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case Msg_Status() when status != null:
 return status(_that.children);case Msg_Request() when request != null:
-return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Online() when online != null:
+return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_History() when history != null:
+return history(_that.children);case Msg_Rules() when rules != null:
+return rules(_that.children);case Msg_Notice() when notice != null:
+return notice(_that.text);case Msg_Online() when online != null:
 return online();case Msg_Problem() when problem != null:
 return problem(_that.text);case _:
   return orElse();
@@ -150,11 +162,14 @@ return problem(_that.text);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<Kid> children)  status,required TResult Function( String id,  String user,  int minutes,  String reason)  request,required TResult Function()  online,required TResult Function( String text)  problem,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<Kid> children)  status,required TResult Function( String id,  String user,  int minutes,  String reason)  request,required TResult Function( List<ChildHistory> children)  history,required TResult Function( List<Rules> children)  rules,required TResult Function( String text)  notice,required TResult Function()  online,required TResult Function( String text)  problem,}) {final _that = this;
 switch (_that) {
 case Msg_Status():
 return status(_that.children);case Msg_Request():
-return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Online():
+return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_History():
+return history(_that.children);case Msg_Rules():
+return rules(_that.children);case Msg_Notice():
+return notice(_that.text);case Msg_Online():
 return online();case Msg_Problem():
 return problem(_that.text);}
 }
@@ -170,11 +185,14 @@ return problem(_that.text);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<Kid> children)?  status,TResult? Function( String id,  String user,  int minutes,  String reason)?  request,TResult? Function()?  online,TResult? Function( String text)?  problem,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<Kid> children)?  status,TResult? Function( String id,  String user,  int minutes,  String reason)?  request,TResult? Function( List<ChildHistory> children)?  history,TResult? Function( List<Rules> children)?  rules,TResult? Function( String text)?  notice,TResult? Function()?  online,TResult? Function( String text)?  problem,}) {final _that = this;
 switch (_that) {
 case Msg_Status() when status != null:
 return status(_that.children);case Msg_Request() when request != null:
-return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Online() when online != null:
+return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_History() when history != null:
+return history(_that.children);case Msg_Rules() when rules != null:
+return rules(_that.children);case Msg_Notice() when notice != null:
+return notice(_that.text);case Msg_Online() when online != null:
 return online();case Msg_Problem() when problem != null:
 return problem(_that.text);case _:
   return null;
@@ -325,6 +343,222 @@ id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,user: null == user ? _self.user : user // ignore: cast_nullable_to_non_nullable
 as String,minutes: null == minutes ? _self.minutes : minutes // ignore: cast_nullable_to_non_nullable
 as int,reason: null == reason ? _self.reason : reason // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class Msg_History extends Msg {
+  const Msg_History({required  List<ChildHistory> children}): _children = children,super._();
+  
+
+ final  List<ChildHistory> _children;
+ List<ChildHistory> get children {
+  if (_children is EqualUnmodifiableListView) return _children;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_children);
+}
+
+
+/// Create a copy of Msg
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$Msg_HistoryCopyWith<Msg_History> get copyWith => _$Msg_HistoryCopyWithImpl<Msg_History>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is Msg_History&&const DeepCollectionEquality().equals(other.children, _children));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_children));
+}
+
+@override
+String toString() {
+    return 'Msg.history(children: $children)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $Msg_HistoryCopyWith<$Res> implements $MsgCopyWith<$Res> {
+  factory $Msg_HistoryCopyWith(Msg_History value, $Res Function(Msg_History) _then) = _$Msg_HistoryCopyWithImpl;
+@useResult
+$Res call({
+ List<ChildHistory> children
+});
+
+
+
+
+}
+/// @nodoc
+class _$Msg_HistoryCopyWithImpl<$Res>
+    implements $Msg_HistoryCopyWith<$Res> {
+  _$Msg_HistoryCopyWithImpl(this._self, this._then);
+
+  final Msg_History _self;
+  final $Res Function(Msg_History) _then;
+
+/// Create a copy of Msg
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? children = null,}) {
+  return _then(Msg_History(
+children: null == children ? _self._children : children // ignore: cast_nullable_to_non_nullable
+as List<ChildHistory>,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class Msg_Rules extends Msg {
+  const Msg_Rules({required  List<Rules> children}): _children = children,super._();
+  
+
+ final  List<Rules> _children;
+ List<Rules> get children {
+  if (_children is EqualUnmodifiableListView) return _children;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_children);
+}
+
+
+/// Create a copy of Msg
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$Msg_RulesCopyWith<Msg_Rules> get copyWith => _$Msg_RulesCopyWithImpl<Msg_Rules>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is Msg_Rules&&const DeepCollectionEquality().equals(other.children, _children));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_children));
+}
+
+@override
+String toString() {
+    return 'Msg.rules(children: $children)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $Msg_RulesCopyWith<$Res> implements $MsgCopyWith<$Res> {
+  factory $Msg_RulesCopyWith(Msg_Rules value, $Res Function(Msg_Rules) _then) = _$Msg_RulesCopyWithImpl;
+@useResult
+$Res call({
+ List<Rules> children
+});
+
+
+
+
+}
+/// @nodoc
+class _$Msg_RulesCopyWithImpl<$Res>
+    implements $Msg_RulesCopyWith<$Res> {
+  _$Msg_RulesCopyWithImpl(this._self, this._then);
+
+  final Msg_Rules _self;
+  final $Res Function(Msg_Rules) _then;
+
+/// Create a copy of Msg
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? children = null,}) {
+  return _then(Msg_Rules(
+children: null == children ? _self._children : children // ignore: cast_nullable_to_non_nullable
+as List<Rules>,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class Msg_Notice extends Msg {
+  const Msg_Notice({required this.text}): super._();
+  
+
+ final  String text;
+
+/// Create a copy of Msg
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$Msg_NoticeCopyWith<Msg_Notice> get copyWith => _$Msg_NoticeCopyWithImpl<Msg_Notice>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is Msg_Notice&&(identical(other.text, text) || other.text == text));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,text);
+}
+
+@override
+String toString() {
+    return 'Msg.notice(text: $text)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $Msg_NoticeCopyWith<$Res> implements $MsgCopyWith<$Res> {
+  factory $Msg_NoticeCopyWith(Msg_Notice value, $Res Function(Msg_Notice) _then) = _$Msg_NoticeCopyWithImpl;
+@useResult
+$Res call({
+ String text
+});
+
+
+
+
+}
+/// @nodoc
+class _$Msg_NoticeCopyWithImpl<$Res>
+    implements $Msg_NoticeCopyWith<$Res> {
+  _$Msg_NoticeCopyWithImpl(this._self, this._then);
+
+  final Msg_Notice _self;
+  final $Res Function(Msg_Notice) _then;
+
+/// Create a copy of Msg
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? text = null,}) {
+  return _then(Msg_Notice(
+text: null == text ? _self.text : text // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }

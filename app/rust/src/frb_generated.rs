@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1679105280;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 539009794;
 
 // Section: executor
 
@@ -192,6 +192,76 @@ fn wire__crate__api__pair_impl(
         },
     )
 }
+fn wire__crate__api__request_history_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "request_history",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_state_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::request_history(api_state_path)?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__request_rules_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "request_rules",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_state_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::request_rules(api_state_path)?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__request_status_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -227,6 +297,42 @@ fn wire__crate__api__request_status_impl(
         },
     )
 }
+fn wire__crate__api__set_rules_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_rules",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_rules = <crate::api::Rules>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::set_rules(api_state_path, api_rules)?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
 
 // Section: dart2rust
 
@@ -254,10 +360,64 @@ impl SseDecode for String {
     }
 }
 
+impl SseDecode for crate::api::AppRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_app = <String>::sse_decode(deserializer);
+        let mut var_minutes = <u32>::sse_decode(deserializer);
+        return crate::api::AppRule {
+            app: var_app,
+            minutes: var_minutes,
+        };
+    }
+}
+
+impl SseDecode for crate::api::AppUse {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_app = <String>::sse_decode(deserializer);
+        let mut var_seconds = <i64>::sse_decode(deserializer);
+        return crate::api::AppUse {
+            app: var_app,
+            seconds: var_seconds,
+        };
+    }
+}
+
 impl SseDecode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_u8().unwrap() != 0
+    }
+}
+
+impl SseDecode for crate::api::ChildHistory {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_user = <String>::sse_decode(deserializer);
+        let mut var_days = <Vec<crate::api::DayUse>>::sse_decode(deserializer);
+        let mut var_apps = <Vec<crate::api::AppUse>>::sse_decode(deserializer);
+        return crate::api::ChildHistory {
+            user: var_user,
+            days: var_days,
+            apps: var_apps,
+        };
+    }
+}
+
+impl SseDecode for crate::api::DayUse {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_date = <String>::sse_decode(deserializer);
+        let mut var_usedS = <i64>::sse_decode(deserializer);
+        let mut var_extraS = <i64>::sse_decode(deserializer);
+        let mut var_limitS = <i64>::sse_decode(deserializer);
+        return crate::api::DayUse {
+            date: var_date,
+            used_s: var_usedS,
+            extra_s: var_extraS,
+            limit_s: var_limitS,
+        };
     }
 }
 
@@ -284,6 +444,66 @@ impl SseDecode for crate::api::Kid {
     }
 }
 
+impl SseDecode for Vec<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<String>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::AppRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::AppRule>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::AppUse> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::AppUse>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::ChildHistory> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::ChildHistory>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::DayUse> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::DayUse>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::Kid> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -303,6 +523,18 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::Rules> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::Rules>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -332,9 +564,25 @@ impl SseDecode for crate::api::Msg {
                 };
             }
             2 => {
-                return crate::api::Msg::Online;
+                let mut var_children = <Vec<crate::api::ChildHistory>>::sse_decode(deserializer);
+                return crate::api::Msg::History {
+                    children: var_children,
+                };
             }
             3 => {
+                let mut var_children = <Vec<crate::api::Rules>>::sse_decode(deserializer);
+                return crate::api::Msg::Rules {
+                    children: var_children,
+                };
+            }
+            4 => {
+                let mut var_text = <String>::sse_decode(deserializer);
+                return crate::api::Msg::Notice { text: var_text };
+            }
+            5 => {
+                return crate::api::Msg::Online;
+            }
+            6 => {
                 let mut var_text = <String>::sse_decode(deserializer);
                 return crate::api::Msg::Problem { text: var_text };
             }
@@ -342,6 +590,50 @@ impl SseDecode for crate::api::Msg {
                 unimplemented!("");
             }
         }
+    }
+}
+
+impl SseDecode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<String>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::WebRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::WebRule>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for crate::api::Rules {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_user = <String>::sse_decode(deserializer);
+        let mut var_schoolMinutes = <u32>::sse_decode(deserializer);
+        let mut var_weekendMinutes = <u32>::sse_decode(deserializer);
+        let mut var_schoolWindow = <Option<String>>::sse_decode(deserializer);
+        let mut var_weekendWindow = <Option<String>>::sse_decode(deserializer);
+        let mut var_apps = <Vec<crate::api::AppRule>>::sse_decode(deserializer);
+        let mut var_web = <Option<crate::api::WebRule>>::sse_decode(deserializer);
+        return crate::api::Rules {
+            user: var_user,
+            school_minutes: var_schoolMinutes,
+            weekend_minutes: var_weekendMinutes,
+            school_window: var_schoolWindow,
+            weekend_window: var_weekendWindow,
+            apps: var_apps,
+            web: var_web,
+        };
     }
 }
 
@@ -364,6 +656,18 @@ impl SseDecode for () {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {}
 }
 
+impl SseDecode for crate::api::WebRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_safesearch = <bool>::sse_decode(deserializer);
+        let mut var_block = <Vec<String>>::sse_decode(deserializer);
+        return crate::api::WebRule {
+            safesearch: var_safesearch,
+            block: var_block,
+        };
+    }
+}
+
 impl SseDecode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -383,7 +687,10 @@ fn pde_ffi_dispatcher_primary_impl(
         1 => wire__crate__api__answer_impl(port, ptr, rust_vec_len, data_len),
         3 => wire__crate__api__listen_impl(port, ptr, rust_vec_len, data_len),
         4 => wire__crate__api__pair_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__request_status_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__request_history_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__request_rules_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__request_status_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__set_rules_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -403,6 +710,73 @@ fn pde_ffi_dispatcher_sync_impl(
 
 // Section: rust2dart
 
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::AppRule {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.app.into_into_dart().into_dart(),
+            self.minutes.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::AppRule {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::AppRule> for crate::api::AppRule {
+    fn into_into_dart(self) -> crate::api::AppRule {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::AppUse {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.app.into_into_dart().into_dart(),
+            self.seconds.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::AppUse {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::AppUse> for crate::api::AppUse {
+    fn into_into_dart(self) -> crate::api::AppUse {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::ChildHistory {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.user.into_into_dart().into_dart(),
+            self.days.into_into_dart().into_dart(),
+            self.apps.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::ChildHistory {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::ChildHistory> for crate::api::ChildHistory {
+    fn into_into_dart(self) -> crate::api::ChildHistory {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::DayUse {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.date.into_into_dart().into_dart(),
+            self.used_s.into_into_dart().into_dart(),
+            self.extra_s.into_into_dart().into_dart(),
+            self.limit_s.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::DayUse {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::DayUse> for crate::api::DayUse {
+    fn into_into_dart(self) -> crate::api::DayUse {
+        self
+    }
+}
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::Kid {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
@@ -441,9 +815,18 @@ impl flutter_rust_bridge::IntoDart for crate::api::Msg {
                 reason.into_into_dart().into_dart(),
             ]
             .into_dart(),
-            crate::api::Msg::Online => [2.into_dart()].into_dart(),
+            crate::api::Msg::History { children } => {
+                [2.into_dart(), children.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::Msg::Rules { children } => {
+                [3.into_dart(), children.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::Msg::Notice { text } => {
+                [4.into_dart(), text.into_into_dart().into_dart()].into_dart()
+            }
+            crate::api::Msg::Online => [5.into_dart()].into_dart(),
             crate::api::Msg::Problem { text } => {
-                [3.into_dart(), text.into_into_dart().into_dart()].into_dart()
+                [6.into_dart(), text.into_into_dart().into_dart()].into_dart()
             }
             _ => {
                 unimplemented!("");
@@ -454,6 +837,43 @@ impl flutter_rust_bridge::IntoDart for crate::api::Msg {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::Msg {}
 impl flutter_rust_bridge::IntoIntoDart<crate::api::Msg> for crate::api::Msg {
     fn into_into_dart(self) -> crate::api::Msg {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::Rules {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.user.into_into_dart().into_dart(),
+            self.school_minutes.into_into_dart().into_dart(),
+            self.weekend_minutes.into_into_dart().into_dart(),
+            self.school_window.into_into_dart().into_dart(),
+            self.weekend_window.into_into_dart().into_dart(),
+            self.apps.into_into_dart().into_dart(),
+            self.web.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::Rules {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::Rules> for crate::api::Rules {
+    fn into_into_dart(self) -> crate::api::Rules {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::WebRule {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.safesearch.into_into_dart().into_dart(),
+            self.block.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::WebRule {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::WebRule> for crate::api::WebRule {
+    fn into_into_dart(self) -> crate::api::WebRule {
         self
     }
 }
@@ -479,10 +899,45 @@ impl SseEncode for String {
     }
 }
 
+impl SseEncode for crate::api::AppRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.app, serializer);
+        <u32>::sse_encode(self.minutes, serializer);
+    }
+}
+
+impl SseEncode for crate::api::AppUse {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.app, serializer);
+        <i64>::sse_encode(self.seconds, serializer);
+    }
+}
+
 impl SseEncode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_u8(self as _).unwrap();
+    }
+}
+
+impl SseEncode for crate::api::ChildHistory {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.user, serializer);
+        <Vec<crate::api::DayUse>>::sse_encode(self.days, serializer);
+        <Vec<crate::api::AppUse>>::sse_encode(self.apps, serializer);
+    }
+}
+
+impl SseEncode for crate::api::DayUse {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.date, serializer);
+        <i64>::sse_encode(self.used_s, serializer);
+        <i64>::sse_encode(self.extra_s, serializer);
+        <i64>::sse_encode(self.limit_s, serializer);
     }
 }
 
@@ -503,6 +958,56 @@ impl SseEncode for crate::api::Kid {
     }
 }
 
+impl SseEncode for Vec<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <String>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::AppRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::AppRule>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::AppUse> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::AppUse>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::ChildHistory> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::ChildHistory>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::DayUse> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::DayUse>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::Kid> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -519,6 +1024,16 @@ impl SseEncode for Vec<u8> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::Rules> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::Rules>::sse_encode(item, serializer);
         }
     }
 }
@@ -543,17 +1058,62 @@ impl SseEncode for crate::api::Msg {
                 <u32>::sse_encode(minutes, serializer);
                 <String>::sse_encode(reason, serializer);
             }
-            crate::api::Msg::Online => {
+            crate::api::Msg::History { children } => {
                 <i32>::sse_encode(2, serializer);
+                <Vec<crate::api::ChildHistory>>::sse_encode(children, serializer);
+            }
+            crate::api::Msg::Rules { children } => {
+                <i32>::sse_encode(3, serializer);
+                <Vec<crate::api::Rules>>::sse_encode(children, serializer);
+            }
+            crate::api::Msg::Notice { text } => {
+                <i32>::sse_encode(4, serializer);
+                <String>::sse_encode(text, serializer);
+            }
+            crate::api::Msg::Online => {
+                <i32>::sse_encode(5, serializer);
             }
             crate::api::Msg::Problem { text } => {
-                <i32>::sse_encode(3, serializer);
+                <i32>::sse_encode(6, serializer);
                 <String>::sse_encode(text, serializer);
             }
             _ => {
                 unimplemented!("");
             }
         }
+    }
+}
+
+impl SseEncode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <String>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::WebRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::WebRule>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for crate::api::Rules {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.user, serializer);
+        <u32>::sse_encode(self.school_minutes, serializer);
+        <u32>::sse_encode(self.weekend_minutes, serializer);
+        <Option<String>>::sse_encode(self.school_window, serializer);
+        <Option<String>>::sse_encode(self.weekend_window, serializer);
+        <Vec<crate::api::AppRule>>::sse_encode(self.apps, serializer);
+        <Option<crate::api::WebRule>>::sse_encode(self.web, serializer);
     }
 }
 
@@ -574,6 +1134,14 @@ impl SseEncode for u8 {
 impl SseEncode for () {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {}
+}
+
+impl SseEncode for crate::api::WebRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.safesearch, serializer);
+        <Vec<String>>::sse_encode(self.block, serializer);
+    }
 }
 
 impl SseEncode for i32 {

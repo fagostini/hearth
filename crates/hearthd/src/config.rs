@@ -1,4 +1,5 @@
-//! Rules. ponytail: a TOML file until the parent app's D-Bus API (M5) moves rules into SQLite.
+//! Startup config (TOML): the children, grace period, relay. Each child's rules live in
+//! SQLite once imported (see `ChildRule::to_rules`) and are edited from the parent app.
 use chrono::NaiveTime;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -55,6 +56,7 @@ pub struct DayRule {
 pub type Window = (NaiveTime, NaiveTime);
 
 /// The day's rule: (minutes, allowed window).
+#[derive(Default)]
 pub struct Day {
     pub minutes: u64,
     pub window: Option<Window>,
@@ -88,6 +90,53 @@ impl ChildRule {
         };
         Ok([day("mon")?, day("tue")?, day("wed")?, day("thu")?, day("fri")?, day("sat")?, day("sun")?])
     }
+}
+
+impl ChildRule {
+    /// First-run import into the app's model: one limit and window for school days
+    /// (Mon-Fri, taken from Monday) and one for weekends (from Saturday).
+    /// ponytail: other per-day TOML overrides are dropped; add per-day rules to the app
+    /// model if parents ask for them.
+    pub fn to_rules(&self) -> anyhow::Result<hearth_core::Rules> {
+        let d = self.days()?;
+        let win = |w: Option<Window>| w.map(|(a, b)| format!("{}-{}", a.format("%H:%M"), b.format("%H:%M")));
+        let mut apps: Vec<_> = self.apps.iter().map(|(a, m)| hearth_core::AppRule { app: a.clone(), minutes: *m as u32 }).collect();
+        apps.sort_by(|a, b| a.app.cmp(&b.app));
+        Ok(hearth_core::Rules {
+            user: self.user.clone(),
+            school_minutes: d[0].minutes as u32,
+            weekend_minutes: d[5].minutes as u32,
+            school_window: win(d[0].window),
+            weekend_window: win(d[5].window),
+            apps,
+            web: self.web.as_ref().map(|w| hearth_core::WebRule { safesearch: w.safesearch, block: w.block.clone() }),
+        })
+    }
+}
+
+/// The seven days (Mon..Sun) of app-model rules. Also the validation for rules that
+/// arrive from a phone: anything a parent can send is checked here before it's used.
+pub fn days_from(r: &hearth_core::Rules) -> anyhow::Result<[Day; 7]> {
+    use anyhow::ensure;
+    ensure!(r.school_minutes <= 1440 && r.weekend_minutes <= 1440, "a day has only 24 hours");
+    let school = r.school_window.as_deref().map(parse_window).transpose()?;
+    let weekend = r.weekend_window.as_deref().map(parse_window).transpose()?;
+    ensure!(r.apps.len() <= 200, "too many apps");
+    for a in &r.apps {
+        ensure!(!a.app.trim().is_empty() && a.app.len() <= 255 && !a.app.contains(['/', ' ']), "not an app ID: {:?}", a.app);
+        ensure!(a.minutes <= 1440, "a day has only 24 hours");
+    }
+    if let Some(w) = &r.web {
+        ensure!(w.block.len() <= 2000, "too many blocked sites");
+        for d in &w.block {
+            let ok = !d.is_empty() && d.len() <= 253 && d.contains('.') && d.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-');
+            ensure!(ok, "not a website address: {d:?}");
+        }
+    }
+    let s = Day { minutes: r.school_minutes as u64, window: school };
+    let w = || Day { minutes: r.weekend_minutes as u64, window: weekend };
+    let sd = || Day { minutes: s.minutes, window: s.window };
+    Ok([sd(), sd(), sd(), sd(), sd(), w(), w()])
 }
 
 fn default_grace() -> u64 {
@@ -139,5 +188,27 @@ mod tests {
         assert!(parse_window("7am-8pm").is_err());
         let bad: Config = toml::from_str("[[child]]\nuser = \"a\"\ndaily_minutes = 1\n[child.weekday.funday]\n").unwrap();
         assert!(bad.child[0].days().is_err());
+
+        let r = c.child[0].to_rules().unwrap();
+        assert_eq!((r.school_minutes, r.weekend_minutes), (60, 180));
+        assert_eq!((r.school_window.as_deref(), r.weekend_window.as_deref()), (Some("07:00-20:00"), Some("08:00-21:30")));
+        let d = days_from(&r).unwrap();
+        assert_eq!((d[4].minutes, d[6].minutes), (60, 180));
+    }
+
+    #[test]
+    fn phone_rules_are_checked() {
+        let ok = hearth_core::Rules { user: "a".into(), school_minutes: 60, weekend_minutes: 90, ..Default::default() };
+        assert!(days_from(&ok).is_ok());
+        let bad = |f: fn(&mut hearth_core::Rules)| {
+            let mut r = ok.clone();
+            f(&mut r);
+            days_from(&r).is_err()
+        };
+        assert!(bad(|r| r.school_minutes = 5000));
+        assert!(bad(|r| r.school_window = Some("21:00-07:00".into())));
+        assert!(bad(|r| r.apps = vec![hearth_core::AppRule { app: "../etc".into(), minutes: 0 }]));
+        assert!(bad(|r| r.web = Some(hearth_core::WebRule { safesearch: true, block: vec!["bad domain".into()] })));
+        assert!(bad(|r| r.web = Some(hearth_core::WebRule { safesearch: true, block: vec!["*.com".into()] })));
     }
 }

@@ -9,6 +9,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'api.freezed.dart';
 
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`
+
 bool isPaired({required String statePath}) => RustLib.instance.api.crateApiIsPaired(statePath: statePath);
 
 Future<void> pair({required String statePath, required String qr, required String phoneName}) =>
@@ -17,11 +19,94 @@ Future<void> pair({required String statePath, required String qr, required Strin
 Future<void> requestStatus({required String statePath}) =>
     RustLib.instance.api.crateApiRequestStatus(statePath: statePath);
 
+Future<void> requestHistory({required String statePath}) =>
+    RustLib.instance.api.crateApiRequestHistory(statePath: statePath);
+
+Future<void> requestRules({required String statePath}) =>
+    RustLib.instance.api.crateApiRequestRules(statePath: statePath);
+
+Future<void> setRules({required String statePath, required Rules rules}) =>
+    RustLib.instance.api.crateApiSetRules(statePath: statePath, rules: rules);
+
 Future<void> answer({required String statePath, required String id, required bool approve, required int minutes}) =>
     RustLib.instance.api.crateApiAnswer(statePath: statePath, id: id, approve: approve, minutes: minutes);
 
 /// Stream of messages from the PC. Runs until the Dart side stops listening.
 Stream<Msg> listen({required String statePath}) => RustLib.instance.api.crateApiListen(statePath: statePath);
+
+class AppRule {
+  final String app;
+
+  /// 0 = blocked.
+  final int minutes;
+
+  const AppRule({required this.app, required this.minutes});
+
+  @override
+  int get hashCode => app.hashCode ^ minutes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppRule && runtimeType == other.runtimeType && app == other.app && minutes == other.minutes;
+}
+
+class AppUse {
+  final String app;
+  final PlatformInt64 seconds;
+
+  const AppUse({required this.app, required this.seconds});
+
+  @override
+  int get hashCode => app.hashCode ^ seconds.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppUse && runtimeType == other.runtimeType && app == other.app && seconds == other.seconds;
+}
+
+class ChildHistory {
+  final String user;
+  final List<DayUse> days;
+  final List<AppUse> apps;
+
+  const ChildHistory({required this.user, required this.days, required this.apps});
+
+  @override
+  int get hashCode => user.hashCode ^ days.hashCode ^ apps.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChildHistory &&
+          runtimeType == other.runtimeType &&
+          user == other.user &&
+          days == other.days &&
+          apps == other.apps;
+}
+
+class DayUse {
+  final String date;
+  final PlatformInt64 usedS;
+  final PlatformInt64 extraS;
+  final PlatformInt64 limitS;
+
+  const DayUse({required this.date, required this.usedS, required this.extraS, required this.limitS});
+
+  @override
+  int get hashCode => date.hashCode ^ usedS.hashCode ^ extraS.hashCode ^ limitS.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DayUse &&
+          runtimeType == other.runtimeType &&
+          date == other.date &&
+          usedS == other.usedS &&
+          extraS == other.extraS &&
+          limitS == other.limitS;
+}
 
 /// One child's status as the PC reported it.
 class Kid {
@@ -55,10 +140,73 @@ sealed class Msg with _$Msg {
   const factory Msg.status({required List<Kid> children}) = Msg_Status;
   const factory Msg.request({required String id, required String user, required int minutes, required String reason}) =
       Msg_Request;
+  const factory Msg.history({required List<ChildHistory> children}) = Msg_History;
+  const factory Msg.rules({required List<Rules> children}) = Msg_Rules;
+
+  /// Something the PC wants the parent to read (e.g. why a change was refused).
+  const factory Msg.notice({required String text}) = Msg_Notice;
 
   /// Connected to the relay again.
   const factory Msg.online() = Msg_Online;
 
   /// Can't reach the relay; retrying.
   const factory Msg.problem({required String text}) = Msg_Problem;
+}
+
+class Rules {
+  final String user;
+  final int schoolMinutes;
+  final int weekendMinutes;
+  final String? schoolWindow;
+  final String? weekendWindow;
+  final List<AppRule> apps;
+  final WebRule? web;
+
+  const Rules({
+    required this.user,
+    required this.schoolMinutes,
+    required this.weekendMinutes,
+    this.schoolWindow,
+    this.weekendWindow,
+    required this.apps,
+    this.web,
+  });
+
+  @override
+  int get hashCode =>
+      user.hashCode ^
+      schoolMinutes.hashCode ^
+      weekendMinutes.hashCode ^
+      schoolWindow.hashCode ^
+      weekendWindow.hashCode ^
+      apps.hashCode ^
+      web.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Rules &&
+          runtimeType == other.runtimeType &&
+          user == other.user &&
+          schoolMinutes == other.schoolMinutes &&
+          weekendMinutes == other.weekendMinutes &&
+          schoolWindow == other.schoolWindow &&
+          weekendWindow == other.weekendWindow &&
+          apps == other.apps &&
+          web == other.web;
+}
+
+class WebRule {
+  final bool safesearch;
+  final List<String> block;
+
+  const WebRule({required this.safesearch, required this.block});
+
+  @override
+  int get hashCode => safesearch.hashCode ^ block.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebRule && runtimeType == other.runtimeType && safesearch == other.safesearch && block == other.block;
 }

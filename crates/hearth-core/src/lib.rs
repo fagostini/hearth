@@ -67,6 +67,60 @@ pub struct ChildStatus {
     pub state: String,
 }
 
+/// A child's rules as the app edits them. "School days" are Monday to Friday.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct Rules {
+    pub user: String,
+    pub school_minutes: u32,
+    pub weekend_minutes: u32,
+    /// "HH:MM-HH:MM", same day. None = any time.
+    pub school_window: Option<String>,
+    pub weekend_window: Option<String>,
+    pub apps: Vec<AppRule>,
+    /// None = no web filtering for this child.
+    pub web: Option<WebRule>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct AppRule {
+    /// Desktop app ID, e.g. "org.kde.konsole" or "firefox_firefox".
+    pub app: String,
+    /// Daily minutes; 0 = blocked.
+    pub minutes: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct WebRule {
+    pub safesearch: bool,
+    pub block: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct DayUse {
+    /// "YYYY-MM-DD", oldest first.
+    pub date: String,
+    pub used_s: i64,
+    /// Extra time a parent approved that day.
+    pub extra_s: i64,
+    /// The day's limit from the rules (without extra time); 0 = none.
+    pub limit_s: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct AppUse {
+    pub app: String,
+    pub seconds: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct ChildHistory {
+    pub user: String,
+    /// Last 7 days including today.
+    pub days: Vec<DayUse>,
+    /// Time open per limited app over those days, most used first.
+    pub apps: Vec<AppUse>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Body {
@@ -78,6 +132,18 @@ pub enum Body {
     ExtensionReply { id: String, approve: bool, minutes: u32 },
     /// Phone -> PC: send a fresh Status.
     GetStatus,
+    /// Phone -> PC: send History.
+    GetHistory,
+    /// PC -> phone: the last 7 days per child.
+    History { children: Vec<ChildHistory> },
+    /// Phone -> PC: send Rules.
+    GetRules,
+    /// PC -> phone: every child's current rules (also the answer to SetRules).
+    Rules { children: Vec<Rules> },
+    /// Phone -> PC: replace one child's rules.
+    SetRules { rules: Rules },
+    /// PC -> phone: something the parent should read, e.g. why a change was refused.
+    Notice { text: String },
 }
 
 /// What travels over the relay. Only `from` and `to` are readable (public keys).
@@ -304,6 +370,22 @@ mod tests {
         req.name = "Mum".into(); // name is covered by the MAC
         assert!(offer.verify(&req).is_err());
         assert!(PairOffer::from_qr("https://example.com").is_err());
+    }
+
+    #[test]
+    fn new_messages_roundtrip() {
+        let (pc, phone, mut pc_peer, mut phone_peer) = paired();
+        let rules = Rules {
+            user: "mia".into(),
+            school_minutes: 120,
+            weekend_minutes: 180,
+            school_window: Some("07:00-20:30".into()),
+            weekend_window: None,
+            apps: vec![AppRule { app: "org.kde.konsole".into(), minutes: 0 }],
+            web: Some(WebRule { safesearch: true, block: vec!["tiktok.com".into()] }),
+        };
+        let wire = Channel::new(&phone, &mut phone_peer).unwrap().seal(Body::SetRules { rules: rules.clone() }, 1).unwrap();
+        assert_eq!(Channel::new(&pc, &mut pc_peer).unwrap().open(&wire).unwrap(), Body::SetRules { rules });
     }
 
     #[test]
