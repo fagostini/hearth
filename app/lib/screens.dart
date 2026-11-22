@@ -703,7 +703,7 @@ class _WeekScreenState extends State<WeekScreen> {
     final i = who.clamp(0, weeks.length - 1);
     final week = weeks[i];
     final (color, tint, ink) = colours[i];
-    final total = week.days.fold(0, (s, d) => s + d.used + d.extra);
+    final total = week.days.fold(0, (s, d) => s + d.used);
     final maxApp = week.apps.fold(1, (m, a) => math.max(m, a.minutes));
     final barTint = Color.lerp(color, Colors.white, 0.55)!;
     return ListView(
@@ -747,7 +747,7 @@ class _WeekScreenState extends State<WeekScreen> {
                 runSpacing: 6,
                 children: [
                   _legend(barTint, 'Used'),
-                  _legend(color, 'Extra time you gave'),
+                  _legend(color, 'Extra time used'),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -833,14 +833,14 @@ class WeekChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Scale to the week's biggest bar or limit, at least 3 h; grid every 1, 2 or 4 h.
-    final peak = days.fold(180, (m, d) => math.max(m, math.max(d.used + d.extra, d.limit)));
+    final peak = days.fold(180, (m, d) => math.max(m, math.max(d.used, d.limit + d.extra)));
     final hours = (peak / 60).ceil();
     final step = hours <= 4 ? 1 : (hours <= 8 ? 2 : 4);
     final ticks = [for (var t = step; t <= hours; t += step) t];
     final maxMin = hours * 60.0;
     double y(int m) => m / maxMin * h;
     return Semantics(
-      label: 'Minutes per day: ${days.map((d) => '${d.label} ${d.used + d.extra}').join(', ')}',
+      label: 'Minutes per day: ${days.map((d) => '${d.label} ${d.used}').join(', ')}',
       excludeSemantics: true,
       child: SizedBox(
         height: h + 22,
@@ -893,16 +893,16 @@ class WeekChart extends StatelessWidget {
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        if (d.extra > 0)
+                                        if (d.over > 0)
                                           Container(
-                                            height: y(d.extra),
+                                            height: y(d.over),
                                             decoration: BoxDecoration(
                                               color: color,
                                               borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                                             ),
                                           ),
                                         Container(
-                                          height: y(d.used),
+                                          height: y(d.used - d.over),
                                           decoration: BoxDecoration(
                                             color: d.today ? null : tint,
                                             gradient: d.today
@@ -915,7 +915,7 @@ class WeekChart extends StatelessWidget {
                                                   )
                                                 : null,
                                             borderRadius: BorderRadius.vertical(
-                                              top: Radius.circular(d.extra > 0 ? 0 : 8),
+                                              top: Radius.circular(d.over > 0 ? 0 : 8),
                                               bottom: const Radius.circular(4),
                                             ),
                                           ),

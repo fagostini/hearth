@@ -53,6 +53,10 @@ class Day {
   final int extra;
   final int limit;
   final bool today;
+
+  /// Minutes used beyond the normal limit, which only approved extra time allows
+  /// (drawn in the darker colour). 0 when there's no limit.
+  int get over => limit == 0 ? 0 : (used - limit).clamp(0, extra);
 }
 
 class AppUse {
@@ -96,7 +100,7 @@ class Demo {
     Day('M', 104, 0, 120),
     Day('T', 120, 0, 120),
     Day('W', 88, 0, 120),
-    Day('T', 120, 15, 120),
+    Day('T', 135, 15, 120),
     Day('F', 112, 0, 120),
     Day('S', 171, 0, 180),
     Day('S', 95, 0, 180, today: true),
