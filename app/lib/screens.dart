@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import 'hub.dart';
 import 'main.dart';
 import 'model.dart';
 
@@ -19,11 +20,14 @@ class Header extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(over, style: body(13, weight: 500, color: C.muted)),
-            const SizedBox(height: 2),
-            Semantics(header: true, child: Text(title, style: display(40))),
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(over, style: body(13, weight: 500, color: C.muted)),
+              const SizedBox(height: 2),
+              Semantics(header: true, child: Text(title, style: display(40))),
+            ],
+          ),
         ),
         ?trailing,
       ],
@@ -39,10 +43,10 @@ class Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: color,
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(padding: EdgeInsets.all(padding), child: child),
-      );
+    color: color,
+    borderRadius: BorderRadius.circular(22),
+    child: Padding(padding: EdgeInsets.all(padding), child: child),
+  );
 }
 
 class Pill extends StatelessWidget {
@@ -52,10 +56,10 @@ class Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-        child: Text(text, style: body(12, weight: 600, color: fg, height: 1.2)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+    child: Text(text, style: body(12, weight: 600, color: fg, height: 1.2)),
+  );
 }
 
 class Avatar extends StatelessWidget {
@@ -65,12 +69,12 @@ class Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: child.color, shape: BoxShape.circle),
-        child: Text(child.name[0], style: display(size * 0.42, color: Colors.white, height: 1)),
-      );
+    width: size,
+    height: size,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(color: child.color, shape: BoxShape.circle),
+    child: Text(child.name[0], style: display(size * 0.42, color: Colors.white, height: 1)),
+  );
 }
 
 /// Pulsing dot: the PC is online. Still when the system asks for reduced motion.
@@ -98,20 +102,25 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: c,
-        builder: (_, _) {
-          final t = math.sin(c.value * math.pi);
-          return Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: widget.color,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: widget.color.withValues(alpha: 0.45 * (1 - t)), spreadRadius: 6 * t)],
+    animation: c,
+    builder: (_, _) {
+      final t = math.sin(c.value * math.pi);
+      return Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: widget.color,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.45 * (1 - t)),
+              spreadRadius: 6 * t,
             ),
-          );
-        },
+          ],
+        ),
       );
+    },
+  );
 }
 
 // ---------- the time ring ----------
@@ -126,7 +135,9 @@ class Ring extends StatelessWidget {
     final fraction = child.limitMin == 0 ? 0.0 : child.leftMin / child.limitMin;
     final reduce = MediaQuery.of(context).disableAnimations;
     return Semantics(
-      label: child.locked ? '${child.name}: no time left, screen locked' : '${child.name}: ${child.leftMin} of ${child.limitMin} minutes left',
+      label: child.locked
+          ? '${child.name}: no time left, screen locked'
+          : '${child.name}: ${child.leftMin} of ${child.limitMin} minutes left',
       excludeSemantics: true,
       child: TweenAnimationBuilder<double>(
         tween: Tween(begin: reduce ? fraction : 0, end: fraction),
@@ -137,14 +148,17 @@ class Ring extends StatelessWidget {
           painter: _RingPainter(v, child.color, child.tint),
           child: SizedBox.square(
             dimension: size,
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (child.locked)
-                Icon(Icons.lock_outline, color: child.ink, size: 30)
-              else
-                Text('${child.leftMin}', style: display(size * 0.3, height: 1)),
-              const SizedBox(height: 2),
-              Text(child.locked ? 'locked' : 'min left', style: body(11, weight: 500, color: C.muted, height: 1.1)),
-            ]),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (child.locked)
+                  Icon(Icons.lock_outline, color: child.ink, size: 30)
+                else
+                  Text('${child.leftMin}', style: display(size * 0.3, height: 1)),
+                const SizedBox(height: 2),
+                Text(child.locked ? 'locked' : 'min left', style: body(11, weight: 500, color: C.muted, height: 1.1)),
+              ],
+            ),
           ),
         ),
       ),
@@ -175,17 +189,45 @@ class _RingPainter extends CustomPainter {
 
 // ---------- Today ----------
 
+String _today() {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  final n = DateTime.now();
+  return '${days[n.weekday - 1]} ${n.day} ${months[n.month - 1]} · ${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}';
+}
+
 class TodayScreen extends StatelessWidget {
   const TodayScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final req = Demo.request;
+    final h = hub;
+    if (h == null) return _build(context, null);
+    return ListenableBuilder(listenable: h, builder: (context, _) => _build(context, h));
+  }
+
+  Widget _build(BuildContext context, Hub? h) {
+    final live = h?.live ?? false;
+    final kids = live ? h!.children! : Demo.children;
+    final req = live ? h!.requests.firstOrNull : Demo.request;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
         Header(
-          over: 'Sunday 22 November · 17:46',
+          over: live ? _today() : 'Sunday 22 November · 17:46',
           title: 'Today',
           trailing: Material(
             color: C.surface,
@@ -195,47 +237,80 @@ class TodayScreen extends StatelessWidget {
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PairScreen())),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const LiveDot(color: Color(0xFF1F9A8A)),
-                  const SizedBox(width: 8),
-                  Text('Kitchen PC', style: body(12, weight: 600, color: const Color(0xFF13776A), height: 1.2)),
-                ]),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LiveDot(color: h?.problem == null ? const Color(0xFF1F9A8A) : C.muted),
+                    const SizedBox(width: 8),
+                    Text('Family PC', style: body(12, weight: 600, color: const Color(0xFF13776A), height: 1.2)),
+                  ],
+                ),
               ),
             ),
           ),
         ),
+        if (h?.problem case final p?) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: const Color(0xFFFBE9E0), borderRadius: BorderRadius.circular(16)),
+            child: Text(
+              'Can\'t reach the PC right now. Retrying. ($p)',
+              style: body(13, color: const Color(0xFFA33F14)),
+            ),
+          ),
+        ],
+        if (req != null) ...[const SizedBox(height: 18), _RequestCard(req: req)],
         const SizedBox(height: 18),
-        _RequestCard(req: req),
-        const SizedBox(height: 18),
-        for (final c in Demo.children) ...[
+        if (h != null && h.paired && !live) ...[
           Panel(
-            child: Row(children: [
-              Ring(child: c),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(c.name, style: display(22, weight: 700)),
-                  const SizedBox(height: 6),
-                  Text(c.note, style: body(13, color: C.muted)),
-                  const SizedBox(height: 8),
-                  Pill(c.pill, bg: c.tint, fg: c.ink),
-                ]),
-              ),
-            ]),
+            child: Text('Waiting for the first update from the PC…', style: body(14, color: C.muted)),
+          ),
+          const SizedBox(height: 14),
+        ],
+        for (final c in kids) ...[
+          Panel(
+            child: Row(
+              children: [
+                Ring(child: c),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(c.name, style: display(22, weight: 700)),
+                      const SizedBox(height: 6),
+                      Text(c.note, style: body(13, color: C.muted)),
+                      const SizedBox(height: 8),
+                      Pill(c.pill, bg: c.tint, fg: c.ink),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 14),
         ],
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(border: Border.all(color: C.line), borderRadius: BorderRadius.circular(18)),
-          child: Row(children: [
-            const Icon(Icons.shield_outlined, size: 20, color: C.muted),
-            const SizedBox(width: 12),
-            Text('SafeSearch on · 4 sites blocked today', style: body(13, color: C.muted)),
-          ]),
+          decoration: BoxDecoration(
+            border: Border.all(color: C.line),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.shield_outlined, size: 20, color: C.muted),
+              const SizedBox(width: 12),
+              Text('SafeSearch on · 4 sites blocked today', style: body(13, color: C.muted)),
+            ],
+          ),
         ),
-        const SizedBox(height: 14),
-        Center(child: Pill('Demo data', bg: C.chip, fg: C.soft)),
+        if (!live) ...[
+          const SizedBox(height: 14),
+          Center(
+            child: Pill('Demo data', bg: C.chip, fg: C.soft),
+          ),
+        ],
       ],
     );
   }
@@ -255,31 +330,45 @@ class _RequestCard extends StatelessWidget {
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RequestScreen(req: req))),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Avatar(req.child),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('ASKING NOW', style: body(12, weight: 600, color: C.mint).copyWith(letterSpacing: 0.7)),
-                  Text('${req.child.name} wants ${req.minutes} more minutes', style: display(19, weight: 700, color: Colors.white, height: 1.2)),
-                ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Avatar(req.child),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('ASKING NOW', style: body(12, weight: 600, color: C.mint).copyWith(letterSpacing: 0.7)),
+                        Text(
+                          '${req.child.name} wants ${req.minutes} more minutes',
+                          style: display(19, weight: 700, color: Colors.white, height: 1.2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ]),
-            const SizedBox(height: 12),
-            Text('“${req.reason}”', style: body(14, color: const Color(0xFFD7DAE8))),
-            const SizedBox(height: 12),
-            Container(
-              constraints: const BoxConstraints(minHeight: 44),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text('Answer', style: body(14, weight: 600)),
-                const SizedBox(width: 6),
-                const Icon(Icons.arrow_forward, size: 16, color: C.ink),
-              ]),
-            ),
-          ]),
+              const SizedBox(height: 12),
+              Text('“${req.reason}”', style: body(14, color: const Color(0xFFD7DAE8))),
+              const SizedBox(height: 12),
+              Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Answer', style: body(14, weight: 600)),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.arrow_forward, size: 16, color: C.ink),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -298,67 +387,114 @@ class RequestScreen extends StatefulWidget {
 class _RequestScreenState extends State<RequestScreen> {
   late int minutes = widget.req.minutes;
   bool? approved;
+  bool sending = false;
+
+  Future<void> _send(bool approve) async {
+    final h = hub;
+    if (h == null || widget.req.id == 'demo') return setState(() => approved = approve);
+    setState(() => sending = true);
+    try {
+      await h.answer(widget.req, approve: approve, minutes: minutes);
+      if (mounted) setState(() => approved = approve);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Not sent: $e. Try again.')));
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final r = widget.req, c = r.child;
     return Scaffold(
-      appBar: AppBar(backgroundColor: C.ground, surfaceTintColor: Colors.transparent, title: Text('Request', style: body(16, weight: 600))),
+      appBar: AppBar(
+        backgroundColor: C.ground,
+        surfaceTintColor: Colors.transparent,
+        title: Text('Request', style: body(16, weight: 600)),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Center(
-              child: Container(
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: c.tint, width: 8)),
-                child: Avatar(c, size: 84),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text('${c.name} wants ${r.minutes} more minutes', textAlign: TextAlign.center, style: display(30, height: 1.1)),
-            const SizedBox(height: 14),
-            Center(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 300),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                decoration: const BoxDecoration(
-                  color: C.surface,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20), bottomRight: Radius.circular(20), bottomLeft: Radius.circular(6)),
-                ),
-                child: Text('“${r.reason}”', style: body(16, height: 1.45)),
-              ),
-            ),
-            const SizedBox(height: 22),
-            Row(children: [
-              for (final (k, v) in [('USED', hm(c.usedMin)), ('LOCKED', r.lockedAt), ('BEDTIME', r.bedtime)]) ...[
-                Expanded(
-                  child: Panel(
-                    padding: 12,
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(k, style: body(11, weight: 600, color: C.muted).copyWith(letterSpacing: 0.66)),
-                      const SizedBox(height: 4),
-                      Text(v, style: body(15, weight: 600)),
-                    ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.tint, width: 8),
                   ),
+                  child: Avatar(c, size: 84),
                 ),
-                if (k != 'BEDTIME') const SizedBox(width: 8),
-              ],
-            ]),
-            const SizedBox(height: 22),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: approved == null ? _choose(c) : _done(c),
-            ),
-          ]),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${c.name} wants ${r.minutes} more minutes',
+                textAlign: TextAlign.center,
+                style: display(30, height: 1.1),
+              ),
+              const SizedBox(height: 14),
+              Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 300),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: const BoxDecoration(
+                    color: C.surface,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                      bottomLeft: Radius.circular(6),
+                    ),
+                  ),
+                  child: Text('“${r.reason}”', style: body(16, height: 1.45)),
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  for (final (k, v) in [
+                    ('USED', hm(c.usedMin)),
+                    ('LOCKED', r.lockedAt),
+                    ('BEDTIME', r.bedtime),
+                  ].where((e) => e.$2.isNotEmpty)) ...[
+                    Expanded(
+                      child: Panel(
+                        padding: 12,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(k, style: body(11, weight: 600, color: C.muted).copyWith(letterSpacing: 0.66)),
+                            const SizedBox(height: 4),
+                            Text(v, style: body(15, weight: 600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 22),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: approved == null ? _choose(c) : _done(c),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _choose(Child c) => Column(key: const ValueKey('choose'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('How much?', style: body(13, weight: 600, color: C.muted)),
-        const SizedBox(height: 12),
-        Row(children: [
+  Widget _choose(Child c) => Column(
+    key: const ValueKey('choose'),
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text('How much?', style: body(13, weight: 600, color: C.muted)),
+      const SizedBox(height: 12),
+      Row(
+        children: [
           for (final n in [10, 15, 30]) ...[
             Expanded(
               child: Semantics(
@@ -381,36 +517,49 @@ class _RequestScreenState extends State<RequestScreen> {
             ),
             if (n != 30) const SizedBox(width: 8),
           ],
-        ]),
-        const SizedBox(height: 28),
-        FilledButton(
-          onPressed: () => setState(() => approved = true),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-            backgroundColor: C.action,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            textStyle: body(17, weight: 600),
-          ),
-          child: Text('Give $minutes minutes'),
+        ],
+      ),
+      const SizedBox(height: 28),
+      FilledButton(
+        onPressed: sending ? null : () => _send(true),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(56),
+          backgroundColor: C.action,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          textStyle: body(17, weight: 600),
         ),
-        const SizedBox(height: 6),
-        TextButton(
-          onPressed: () => setState(() => approved = false),
-          style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: C.ink, textStyle: body(15, weight: 600)),
-          child: const Text('Not today'),
+        child: Text('Give $minutes minutes'),
+      ),
+      const SizedBox(height: 6),
+      TextButton(
+        onPressed: sending ? null : () => _send(false),
+        style: TextButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          foregroundColor: C.ink,
+          textStyle: body(15, weight: 600),
         ),
-      ]);
+        child: const Text('Not today'),
+      ),
+    ],
+  );
 
-  Widget _done(Child c) => Column(key: const ValueKey('done'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Semantics(
-          liveRegion: true,
-          child: Panel(
-            color: C.night,
-            padding: 22,
-            child: Column(children: [
+  Widget _done(Child c) => Column(
+    key: const ValueKey('done'),
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Semantics(
+        liveRegion: true,
+        child: Panel(
+          color: C.night,
+          padding: 22,
+          child: Column(
+            children: [
               const Icon(Icons.check_circle_outline, color: C.mint, size: 36),
               const SizedBox(height: 10),
-              Text(approved! ? 'Sent to Kitchen PC' : 'Told ${c.name} no', style: display(20, weight: 700, color: Colors.white)),
+              Text(
+                approved! ? 'Sent to the PC' : 'Told ${c.name} no',
+                style: display(20, weight: 700, color: Colors.white),
+              ),
               const SizedBox(height: 8),
               Text(
                 approved!
@@ -419,16 +568,23 @@ class _RequestScreenState extends State<RequestScreen> {
                 textAlign: TextAlign.center,
                 style: body(14, color: const Color(0xFFD7DAE8), height: 1.45),
               ),
-            ]),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        TextButton(
-          onPressed: () => setState(() => approved = null),
-          style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48), backgroundColor: C.chip, foregroundColor: C.ink, textStyle: body(15, weight: 600)),
-          child: const Text('Undo'),
+      ),
+      const SizedBox(height: 16),
+      TextButton(
+        onPressed: () => Navigator.of(context).maybePop(),
+        style: TextButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          backgroundColor: C.chip,
+          foregroundColor: C.ink,
+          textStyle: body(15, weight: 600),
         ),
-      ]);
+        child: const Text('Done'),
+      ),
+    ],
+  );
 }
 
 // ---------- Week ----------
@@ -440,27 +596,30 @@ class ChildSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(999)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          for (final (i, c) in Demo.children.indexed)
-            Semantics(
-              selected: i == selected,
-              button: true,
-              child: TextButton(
-                onPressed: () => onChanged(i),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(56, 36),
-                  backgroundColor: i == selected ? C.surface : Colors.transparent,
-                  foregroundColor: i == selected ? c.ink : C.soft,
-                  shape: const StadiumBorder(),
-                  textStyle: body(13, weight: 600),
-                ),
-                child: Text(c.name),
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(color: C.chip, borderRadius: BorderRadius.circular(999)),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (i, c) in Demo.children.indexed)
+          Semantics(
+            selected: i == selected,
+            button: true,
+            child: TextButton(
+              onPressed: () => onChanged(i),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(56, 36),
+                backgroundColor: i == selected ? C.surface : Colors.transparent,
+                foregroundColor: i == selected ? c.ink : C.soft,
+                shape: const StadiumBorder(),
+                textStyle: body(13, weight: 600),
               ),
+              child: Text(c.name),
             ),
-        ]),
-      );
+          ),
+      ],
+    ),
+  );
 }
 
 class WeekScreen extends StatefulWidget {
@@ -480,63 +639,104 @@ class _WeekScreenState extends State<WeekScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
-        Header(over: '16–22 November', title: 'Week', trailing: ChildSwitch(selected: who, onChanged: (i) => setState(() => who = i))),
+        Header(
+          over: '16–22 November',
+          title: 'Week',
+          trailing: ChildSwitch(selected: who, onChanged: (i) => setState(() => who = i)),
+        ),
         const SizedBox(height: 18),
         Panel(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 10, children: [
-              Text(hm(total), style: display(34)),
-              Padding(padding: const EdgeInsets.only(bottom: 4), child: Text('this week · ${hm((total / 7).round())} a day', style: body(13, color: C.muted))),
-            ]),
-            const SizedBox(height: 14),
-            WeekChart(days: Demo.week, color: c.color, tint: Color.lerp(c.color, Colors.white, 0.55)!),
-            const SizedBox(height: 12),
-            Wrap(spacing: 16, runSpacing: 6, children: [
-              _legend(Color.lerp(c.color, Colors.white, 0.55)!, 'Used'),
-              _legend(c.color, 'Extra time you gave'),
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                Container(width: 14, height: 2, color: C.ink),
-                const SizedBox(width: 6),
-                Text('Limit', style: body(12, color: C.muted)),
-              ]),
-            ]),
-          ]),
-        ),
-        const SizedBox(height: 14),
-        Panel(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Apps', style: display(18, weight: 700)),
-            for (final a in Demo.apps) ...[
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.end,
+                spacing: 10,
+                children: [
+                  Text(hm(total), style: display(34)),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('this week · ${hm((total / 7).round())} a day', style: body(13, color: C.muted)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              WeekChart(days: Demo.week, color: c.color, tint: Color.lerp(c.color, Colors.white, 0.55)!),
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: Text(a.name, style: body(14, weight: 600))),
-                Text(hm(a.minutes), style: body(14, color: C.soft)),
-              ]),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(value: a.minutes / maxApp, minHeight: 8, color: c.color, backgroundColor: c.tint),
+              Wrap(
+                spacing: 16,
+                runSpacing: 6,
+                children: [
+                  _legend(Color.lerp(c.color, Colors.white, 0.55)!, 'Used'),
+                  _legend(c.color, 'Extra time you gave'),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(width: 14, height: 2, color: C.ink),
+                      const SizedBox(width: 6),
+                      Text('Limit', style: body(12, color: C.muted)),
+                    ],
+                  ),
+                ],
               ),
             ],
-          ]),
+          ),
         ),
         const SizedBox(height: 14),
         Panel(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Blocked sites', style: display(18, weight: 700)),
-            const SizedBox(height: 8),
-            Text('23 attempts this week: tiktok.com 19, roblox.com 4', style: body(14, color: C.soft, height: 1.5)),
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Apps', style: display(18, weight: 700)),
+              for (final a in Demo.apps) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: Text(a.name, style: body(14, weight: 600))),
+                    Text(hm(a.minutes), style: body(14, color: C.soft)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: a.minutes / maxApp,
+                    minHeight: 8,
+                    color: c.color,
+                    backgroundColor: c.tint,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Blocked sites', style: display(18, weight: 700)),
+              const SizedBox(height: 8),
+              Text('23 attempts this week: tiktok.com 19, roblox.com 4', style: body(14, color: C.soft, height: 1.5)),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _legend(Color color, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
-        const SizedBox(width: 6),
-        Text(label, style: body(12, color: C.muted)),
-      ]);
+  Widget _legend(Color color, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+      ),
+      const SizedBox(width: 6),
+      Text(label, style: body(12, color: C.muted)),
+    ],
+  );
 }
 
 /// Bars to one scale: 180 min = full height. Each bar marks its own day's limit.
@@ -554,56 +754,115 @@ class WeekChart extends StatelessWidget {
       excludeSemantics: true,
       child: SizedBox(
         height: h + 22,
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(
-            width: 28,
-            height: h,
-            child: Stack(clipBehavior: Clip.none, children: [
-              for (final hr in [1, 2, 3])
-                Positioned(right: 4, bottom: y(hr * 60) - 6, child: Text('$hr h', style: body(10, color: C.muted, height: 1))),
-            ]),
-          ),
-          Expanded(
-            child: Stack(clipBehavior: Clip.none, children: [
-              for (final hr in [1, 2, 3])
-                Positioned(left: 0, right: 0, top: h - y(hr * 60), child: Container(height: 1, color: C.line)),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                for (final d in days)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: SizedBox(
-                        height: h + 22,
-                        child: Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter, children: [
-                          Positioned(
-                            bottom: 22,
-                            left: 0,
-                            right: 0,
-                            child: Column(mainAxisSize: MainAxisSize.min, children: [
-                              if (d.extra > 0)
-                                Container(height: y(d.extra), decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.vertical(top: Radius.circular(8)))),
-                              Container(
-                                height: y(d.used),
-                                decoration: BoxDecoration(
-                                  color: d.today ? null : tint,
-                                  gradient: d.today
-                                      ? LinearGradient(begin: Alignment.topLeft, end: const Alignment(-0.6, -0.8), colors: [color, tint], stops: const [0.5, 0.5], tileMode: TileMode.repeated)
-                                      : null,
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(d.extra > 0 ? 0 : 8), bottom: const Radius.circular(4)),
-                                ),
-                              ),
-                            ]),
-                          ),
-                          Positioned(bottom: 22 + y(d.limit) - 1, left: -3, right: -3, child: Container(height: 2, color: C.ink)),
-                          Positioned(bottom: 0, child: Text(d.label, style: body(11, weight: d.today ? 700 : 500, color: d.today ? C.ink : C.muted, height: 1.4))),
-                        ]),
-                      ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 28,
+              height: h,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (final hr in [1, 2, 3])
+                    Positioned(
+                      right: 4,
+                      bottom: y(hr * 60) - 6,
+                      child: Text('$hr h', style: body(10, color: C.muted, height: 1)),
                     ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (final hr in [1, 2, 3])
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: h - y(hr * 60),
+                      child: Container(height: 1, color: C.line),
+                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final d in days)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: SizedBox(
+                              height: h + 22,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                alignment: Alignment.bottomCenter,
+                                children: [
+                                  Positioned(
+                                    bottom: 22,
+                                    left: 0,
+                                    right: 0,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (d.extra > 0)
+                                          Container(
+                                            height: y(d.extra),
+                                            decoration: BoxDecoration(
+                                              color: color,
+                                              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                            ),
+                                          ),
+                                        Container(
+                                          height: y(d.used),
+                                          decoration: BoxDecoration(
+                                            color: d.today ? null : tint,
+                                            gradient: d.today
+                                                ? LinearGradient(
+                                                    begin: Alignment.topLeft,
+                                                    end: const Alignment(-0.6, -0.8),
+                                                    colors: [color, tint],
+                                                    stops: const [0.5, 0.5],
+                                                    tileMode: TileMode.repeated,
+                                                  )
+                                                : null,
+                                            borderRadius: BorderRadius.vertical(
+                                              top: Radius.circular(d.extra > 0 ? 0 : 8),
+                                              bottom: const Radius.circular(4),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 22 + y(d.limit) - 1,
+                                    left: -3,
+                                    right: -3,
+                                    child: Container(height: 2, color: C.ink),
+                                  ),
+                                  Positioned(
+                                    bottom: 0,
+                                    child: Text(
+                                      d.label,
+                                      style: body(
+                                        11,
+                                        weight: d.today ? 700 : 500,
+                                        color: d.today ? C.ink : C.muted,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ]),
-            ]),
-          ),
-        ]),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -628,7 +887,11 @@ class _RulesScreenState extends State<RulesScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
-        Header(over: 'Saved on Kitchen PC', title: 'Rules', trailing: ChildSwitch(selected: who, onChanged: (i) => setState(() => who = i))),
+        Header(
+          over: 'Demo · saved on the family PC',
+          title: 'Rules',
+          trailing: ChildSwitch(selected: who, onChanged: (i) => setState(() => who = i)),
+        ),
         const SizedBox(height: 16),
         _section('Screen time a day', [
           _stepper('School days', school, (v) => setState(() => school = v)),
@@ -641,9 +904,12 @@ class _RulesScreenState extends State<RulesScreen> {
           const SizedBox(height: 12),
           _window('Weekends', '08:00 – 21:30', 8, 21.5, c),
           const SizedBox(height: 6),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            for (final t in ['00', '06', '12', '18', '24']) Text(t, style: body(10, color: C.muted)),
-          ]),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final t in ['00', '06', '12', '18', '24']) Text(t, style: body(10, color: C.muted)),
+            ],
+          ),
         ]),
         const SizedBox(height: 14),
         _section('Apps', [
@@ -654,7 +920,16 @@ class _RulesScreenState extends State<RulesScreen> {
           _row('Sober (Roblox)', const Pill('Blocked', bg: C.ink, fg: Colors.white)),
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(onPressed: () {}, style: TextButton.styleFrom(foregroundColor: c.ink, padding: EdgeInsets.zero, minimumSize: const Size(0, 44), textStyle: body(14, weight: 600)), child: const Text('+ Add an app')),
+            child: TextButton(
+              onPressed: () {},
+              style: TextButton.styleFrom(
+                foregroundColor: c.ink,
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 44),
+                textStyle: body(14, weight: 600),
+              ),
+              child: const Text('+ Add an app'),
+            ),
           ),
         ]),
         const SizedBox(height: 14),
@@ -675,60 +950,96 @@ class _RulesScreenState extends State<RulesScreen> {
   }
 
   Widget _section(String title, List<Widget> children) => Panel(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(title, style: display(18, weight: 700)),
-          const SizedBox(height: 10),
-          ...children,
-        ]),
-      );
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(title, style: display(18, weight: 700)),
+        const SizedBox(height: 10),
+        ...children,
+      ],
+    ),
+  );
 
   Widget _row(String label, Widget trailing) => ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: Row(children: [Expanded(child: Text(label, style: body(15))), trailing]),
-      );
-
-  Widget _stepper(String label, int value, ValueChanged<int> set) => Row(children: [
+    constraints: const BoxConstraints(minHeight: 48),
+    child: Row(
+      children: [
         Expanded(child: Text(label, style: body(15))),
-        IconButton.filledTonal(
-          tooltip: '15 minutes less, $label',
-          onPressed: value > 15 ? () => set(value - 15) : null,
-          icon: const Icon(Icons.remove),
-          style: IconButton.styleFrom(backgroundColor: const Color(0xFFEEEFF5), foregroundColor: C.ink, minimumSize: const Size(44, 44)),
-        ),
-        SizedBox(width: 72, child: Text(hm(value), textAlign: TextAlign.center, style: body(17, weight: 600))),
-        IconButton.filledTonal(
-          tooltip: '15 minutes more, $label',
-          onPressed: value < 600 ? () => set(value + 15) : null,
-          icon: const Icon(Icons.add),
-          style: IconButton.styleFrom(backgroundColor: const Color(0xFFEEEFF5), foregroundColor: C.ink, minimumSize: const Size(44, 44)),
-        ),
-      ]);
+        trailing,
+      ],
+    ),
+  );
 
-  Widget _window(String label, String text, double from, double to, Child c) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [Expanded(child: Text(label, style: body(14))), Text(text, style: body(14, weight: 600))]),
-        const SizedBox(height: 6),
-        LayoutBuilder(
-          builder: (_, box) => Container(
-            height: 10,
-            decoration: BoxDecoration(color: const Color(0xFFEEEFF5), borderRadius: BorderRadius.circular(5)),
-            child: Stack(children: [
+  Widget _stepper(String label, int value, ValueChanged<int> set) => Row(
+    children: [
+      Expanded(child: Text(label, style: body(15))),
+      IconButton.filledTonal(
+        tooltip: '15 minutes less, $label',
+        onPressed: value > 15 ? () => set(value - 15) : null,
+        icon: const Icon(Icons.remove),
+        style: IconButton.styleFrom(
+          backgroundColor: const Color(0xFFEEEFF5),
+          foregroundColor: C.ink,
+          minimumSize: const Size(44, 44),
+        ),
+      ),
+      SizedBox(
+        width: 72,
+        child: Text(hm(value), textAlign: TextAlign.center, style: body(17, weight: 600)),
+      ),
+      IconButton.filledTonal(
+        tooltip: '15 minutes more, $label',
+        onPressed: value < 600 ? () => set(value + 15) : null,
+        icon: const Icon(Icons.add),
+        style: IconButton.styleFrom(
+          backgroundColor: const Color(0xFFEEEFF5),
+          foregroundColor: C.ink,
+          minimumSize: const Size(44, 44),
+        ),
+      ),
+    ],
+  );
+
+  Widget _window(String label, String text, double from, double to, Child c) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        children: [
+          Expanded(child: Text(label, style: body(14))),
+          Text(text, style: body(14, weight: 600)),
+        ],
+      ),
+      const SizedBox(height: 6),
+      LayoutBuilder(
+        builder: (_, box) => Container(
+          height: 10,
+          decoration: BoxDecoration(color: const Color(0xFFEEEFF5), borderRadius: BorderRadius.circular(5)),
+          child: Stack(
+            children: [
               Positioned(
                 left: box.maxWidth * from / 24,
                 width: box.maxWidth * (to - from) / 24,
                 top: 0,
                 bottom: 0,
-                child: Container(decoration: BoxDecoration(color: c.color, borderRadius: BorderRadius.circular(5))),
+                child: Container(
+                  decoration: BoxDecoration(color: c.color, borderRadius: BorderRadius.circular(5)),
+                ),
               ),
-            ]),
+            ],
           ),
         ),
-      ]);
+      ),
+    ],
+  );
 }
 
 // ---------- Pair ----------
 
 class PairScreen extends StatefulWidget {
-  const PairScreen({super.key});
+  const PairScreen({super.key, this.first = false});
+
+  /// Shown as the app's first screen (no back button).
+  final bool first;
   @override
   State<PairScreen> createState() => _PairScreenState();
 }
@@ -753,68 +1064,125 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
     const ember = Color(0xFFE8622C);
     return Scaffold(
       backgroundColor: C.night,
-      appBar: AppBar(backgroundColor: C.night, foregroundColor: Colors.white),
+      appBar: AppBar(backgroundColor: C.night, foregroundColor: Colors.white, automaticallyImplyLeading: !widget.first),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(children: [
-            Text('Pair with your family PC', textAlign: TextAlign.center, style: display(32, color: Colors.white, height: 1.1)),
-            const SizedBox(height: 10),
-            Text.rich(
-              TextSpan(style: body(15, color: const Color(0xFFC9CCDD), height: 1.5), children: [
-                const TextSpan(text: 'On the PC, open Hearth and choose '),
-                TextSpan(text: 'Pair a phone', style: body(15, weight: 600, color: Colors.white, height: 1.5)),
-                const TextSpan(text: '. Then point this camera at the code.'),
-              ]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 26),
-            Semantics(
-              label: 'Camera view, waiting for a pairing code',
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(color: C.nightCard, borderRadius: BorderRadius.circular(28)),
-                child: AnimatedBuilder(
-                  animation: scan,
-                  builder: (_, _) => CustomPaint(painter: _ViewfinderPainter(scan.value, ember)),
-                ),
+          child: Column(
+            children: [
+              Text(
+                'Pair with your family PC',
+                textAlign: TextAlign.center,
+                style: display(32, color: Colors.white, height: 1.1),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text('Each code works once, for 10 minutes.', style: body(13, color: const Color(0xFFC9CCDD))),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: C.nightCard, borderRadius: BorderRadius.circular(20)),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.lock_outline, color: C.mint, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Your phone and the PC talk end to end encrypted. The relay in between only passes sealed messages on and can\'t read names, times or requests.',
-                    style: body(13, color: const Color(0xFFDADCE8), height: 1.5),
+              const SizedBox(height: 10),
+              Text.rich(
+                TextSpan(
+                  style: body(15, color: const Color(0xFFC9CCDD), height: 1.5),
+                  children: [
+                    const TextSpan(text: 'On the PC, open Hearth and choose '),
+                    TextSpan(
+                      text: 'Pair a phone',
+                      style: body(15, weight: 600, color: Colors.white, height: 1.5),
+                    ),
+                    const TextSpan(text: '. Then point this camera at the code.'),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 26),
+              Semantics(
+                label: 'Camera view, waiting for a pairing code',
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: BoxDecoration(color: C.nightCard, borderRadius: BorderRadius.circular(28)),
+                  child: AnimatedBuilder(
+                    animation: scan,
+                    builder: (_, _) => CustomPaint(painter: _ViewfinderPainter(scan.value, ember)),
                   ),
                 ),
-              ]),
-            ),
-            const SizedBox(height: 14),
-            OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Color(0xFF3A3F62)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                textStyle: body(15, weight: 600),
               ),
-              child: const Text('Type the code instead'),
-            ),
-          ]),
+              const SizedBox(height: 20),
+              Text('Each code works once, for 10 minutes.', style: body(13, color: const Color(0xFFC9CCDD))),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: C.nightCard, borderRadius: BorderRadius.circular(20)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.lock_outline, color: C.mint, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Your phone and the PC talk end to end encrypted. The relay in between only passes sealed messages on and can\'t read names, times or requests.',
+                        style: body(13, color: const Color(0xFFDADCE8), height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton(
+                onPressed: () => _typeCode(context),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFF3A3F62)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  textStyle: body(15, weight: 600),
+                ),
+                child: const Text('Type the code instead'),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+/// Paste the code shown on the PC (`sudo hearthd pair --text` prints it).
+Future<void> _typeCode(BuildContext context) async {
+  final field = TextEditingController();
+  String? error;
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, set) => AlertDialog(
+        title: const Text('Type the code'),
+        content: TextField(
+          controller: field,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 6,
+          decoration: InputDecoration(
+            labelText: 'Pairing code from the PC',
+            errorText: error,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              final h = hub;
+              if (h == null) return Navigator.of(ctx).pop();
+              try {
+                await h.pair(field.text);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (context.mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+              } catch (e) {
+                set(() => error = 'That code didn\'t work: $e');
+              }
+            },
+            child: const Text('Pair'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _ViewfinderPainter extends CustomPainter {
@@ -830,7 +1198,12 @@ class _ViewfinderPainter extends CustomPainter {
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
     const m = 24.0, l = 42.0, r = 14.0;
-    for (final (x, y, dx, dy) in [(m, m, 1.0, 1.0), (s.width - m, m, -1.0, 1.0), (m, s.height - m, 1.0, -1.0), (s.width - m, s.height - m, -1.0, -1.0)]) {
+    for (final (x, y, dx, dy) in [
+      (m, m, 1.0, 1.0),
+      (s.width - m, m, -1.0, 1.0),
+      (m, s.height - m, 1.0, -1.0),
+      (s.width - m, s.height - m, -1.0, -1.0),
+    ]) {
       final path = Path()
         ..moveTo(x, y + dy * l)
         ..lineTo(x, y + dy * r)
@@ -839,7 +1212,10 @@ class _ViewfinderPainter extends CustomPainter {
       canvas.drawPath(path, p);
     }
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromCenter(center: s.center(Offset.zero), width: 136, height: 136), const Radius.circular(10)),
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: s.center(Offset.zero), width: 136, height: 136),
+        const Radius.circular(10),
+      ),
       Paint()..color = Colors.white.withValues(alpha: 0.14),
     );
     final y = 32 + (s.height - 64) * t;

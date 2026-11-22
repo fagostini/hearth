@@ -6,6 +6,9 @@
 //! - Pairing (`PairOffer` / `PairRequest`): the PC shows a QR code with its public key
 //!   and a one-time secret; the phone proves it saw the QR code with an HMAC over both
 //!   public keys. Someone who only watches or writes to the relay can't pair.
+#[cfg(feature = "client")]
+pub mod client;
+
 use anyhow::{bail, ensure, Context, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as B64, Engine};
 use chacha20poly1305::{

@@ -29,7 +29,15 @@ class Child {
 }
 
 class TimeRequest {
-  TimeRequest({required this.child, required this.minutes, required this.reason, required this.lockedAt, required this.bedtime});
+  TimeRequest({
+    this.id = 'demo',
+    required this.child,
+    required this.minutes,
+    required this.reason,
+    required this.lockedAt,
+    required this.bedtime,
+  });
+  final String id;
   final Child child;
   final int minutes;
   final String reason;
