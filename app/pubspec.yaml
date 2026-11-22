@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_rust_bridge: 2.13.0
+  flutter_secure_storage: ^11.2.0
   freezed_annotation: ^3.1.0
   hearth_bridge:
     path: rust_builder
@@ -23,6 +24,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   freezed: ^4.0.3
   build_runner: ^2.17.1
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -33,3 +35,11 @@ flutter:
     - family: Bricolage
       fonts:
         - asset: assets/fonts/Bricolage.ttf
+
+flutter_launcher_icons:
+  image_path: assets/icon/icon.png
+  android: true
+  adaptive_icon_background: "#171A2C"
+  adaptive_icon_foreground: assets/icon/foreground.png
+  ios: false # no ios/ project yet (needs a Mac to build)
+  linux: false

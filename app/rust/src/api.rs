@@ -1,7 +1,6 @@
-//! What the Flutter app can call. Thin wrappers over hearth_core::client; Dart passes
-//! the path of the pairing file (inside the app's private storage).
-//! ponytail: the phone's private key sits in that app-private file; move it to the
-//! Android Keystore / iOS Keychain before release.
+//! What the Flutter app can call. Thin wrappers over hearth_core::client. Dart passes
+//! the pairing file's path (app-private storage) and the 32-byte key that encrypts it,
+//! which Dart keeps in the platform keystore (Android Keystore, iOS Keychain, libsecret).
 use crate::frb_generated::StreamSink;
 use hearth_core::{client, Body};
 
@@ -98,40 +97,46 @@ pub enum Msg {
     Problem { text: String },
 }
 
+fn key(k: &[u8]) -> anyhow::Result<client::StateKey> {
+    k.try_into().map_err(|_| anyhow::anyhow!("state key must be 32 bytes"))
+}
+
 #[flutter_rust_bridge::frb(sync)]
-pub fn is_paired(state_path: String) -> bool {
-    client::is_paired(Path::new(&state_path))
+pub fn is_paired(state_path: String, state_key: Vec<u8>) -> bool {
+    key(&state_key).is_ok_and(|k| client::is_paired(Path::new(&state_path), Some(&k)))
 }
 
-pub fn pair(state_path: String, qr: String, phone_name: String) -> anyhow::Result<()> {
-    client::pair(Path::new(&state_path), &qr, &phone_name)
+pub fn pair(state_path: String, state_key: Vec<u8>, qr: String, phone_name: String) -> anyhow::Result<()> {
+    client::pair(Path::new(&state_path), Some(&key(&state_key)?), &qr, &phone_name)
 }
 
-pub fn request_status(state_path: String) -> anyhow::Result<()> {
-    client::send(Path::new(&state_path), Body::GetStatus)
+pub fn request_status(state_path: String, state_key: Vec<u8>) -> anyhow::Result<()> {
+    client::send(Path::new(&state_path), Some(&key(&state_key)?), Body::GetStatus)
 }
 
-pub fn request_history(state_path: String) -> anyhow::Result<()> {
-    client::send(Path::new(&state_path), Body::GetHistory)
+pub fn request_history(state_path: String, state_key: Vec<u8>) -> anyhow::Result<()> {
+    client::send(Path::new(&state_path), Some(&key(&state_key)?), Body::GetHistory)
 }
 
-pub fn request_rules(state_path: String) -> anyhow::Result<()> {
-    client::send(Path::new(&state_path), Body::GetRules)
+pub fn request_rules(state_path: String, state_key: Vec<u8>) -> anyhow::Result<()> {
+    client::send(Path::new(&state_path), Some(&key(&state_key)?), Body::GetRules)
 }
 
-pub fn set_rules(state_path: String, rules: Rules) -> anyhow::Result<()> {
-    client::send(Path::new(&state_path), Body::SetRules { rules: rules.into() })
+pub fn set_rules(state_path: String, state_key: Vec<u8>, rules: Rules) -> anyhow::Result<()> {
+    client::send(Path::new(&state_path), Some(&key(&state_key)?), Body::SetRules { rules: rules.into() })
 }
 
-pub fn answer(state_path: String, id: String, approve: bool, minutes: u32) -> anyhow::Result<()> {
-    client::send(Path::new(&state_path), Body::ExtensionReply { id, approve, minutes })
+pub fn answer(state_path: String, state_key: Vec<u8>, id: String, approve: bool, minutes: u32) -> anyhow::Result<()> {
+    client::send(Path::new(&state_path), Some(&key(&state_key)?), Body::ExtensionReply { id, approve, minutes })
 }
 
 /// Stream of messages from the PC. Runs until the Dart side stops listening.
-pub fn listen(state_path: String, sink: StreamSink<Msg>) -> anyhow::Result<()> {
+pub fn listen(state_path: String, state_key: Vec<u8>, sink: StreamSink<Msg>) -> anyhow::Result<()> {
     let sink = &sink;
+    let k = key(&state_key)?;
     client::listen(
         Path::new(&state_path),
+        Some(&k),
         |body| {
             let msg = match body {
                 Body::Status { children } => Msg::Status {

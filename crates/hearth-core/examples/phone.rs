@@ -12,11 +12,11 @@ fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("pair") => {
-            client::pair(&path, args.get(1).ok_or_else(|| anyhow::anyhow!("missing QR payload"))?, args.get(2).map_or("Test phone", |s| s))?;
+            client::pair(&path, None, args.get(1).ok_or_else(|| anyhow::anyhow!("missing QR payload"))?, args.get(2).map_or("Test phone", |s| s))?;
             println!("pairing request sent");
         }
         Some("status") => {
-            client::send(&path, Body::GetStatus)?;
+            client::send(&path, None, Body::GetStatus)?;
             println!("status requested");
         }
         Some("listen") => {
@@ -24,6 +24,7 @@ fn main() -> anyhow::Result<()> {
             let decline = args.iter().any(|a| a == "--decline");
             client::listen(
                 &path,
+                None,
                 |b| {
                     println!("{}", serde_json::to_string(&b).unwrap_or_default());
                     if let Body::ExtensionRequest { id, .. } = b {
@@ -33,7 +34,7 @@ fn main() -> anyhow::Result<()> {
                             _ => None,
                         };
                         if let Some(r) = reply {
-                            match client::send(&path, r.clone()) {
+                            match client::send(&path, None, r.clone()) {
                                 Ok(()) => println!("-> {}", serde_json::to_string(&r).unwrap_or_default()),
                                 Err(e) => println!("reply failed: {e}"),
                             }

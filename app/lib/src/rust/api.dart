@@ -9,30 +9,48 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'api.freezed.dart';
 
+// These functions are ignored because they are not marked as `pub`: `key`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`
 
-bool isPaired({required String statePath}) => RustLib.instance.api.crateApiIsPaired(statePath: statePath);
+bool isPaired({required String statePath, required List<int> stateKey}) =>
+    RustLib.instance.api.crateApiIsPaired(statePath: statePath, stateKey: stateKey);
 
-Future<void> pair({required String statePath, required String qr, required String phoneName}) =>
-    RustLib.instance.api.crateApiPair(statePath: statePath, qr: qr, phoneName: phoneName);
+Future<void> pair({
+  required String statePath,
+  required List<int> stateKey,
+  required String qr,
+  required String phoneName,
+}) => RustLib.instance.api.crateApiPair(statePath: statePath, stateKey: stateKey, qr: qr, phoneName: phoneName);
 
-Future<void> requestStatus({required String statePath}) =>
-    RustLib.instance.api.crateApiRequestStatus(statePath: statePath);
+Future<void> requestStatus({required String statePath, required List<int> stateKey}) =>
+    RustLib.instance.api.crateApiRequestStatus(statePath: statePath, stateKey: stateKey);
 
-Future<void> requestHistory({required String statePath}) =>
-    RustLib.instance.api.crateApiRequestHistory(statePath: statePath);
+Future<void> requestHistory({required String statePath, required List<int> stateKey}) =>
+    RustLib.instance.api.crateApiRequestHistory(statePath: statePath, stateKey: stateKey);
 
-Future<void> requestRules({required String statePath}) =>
-    RustLib.instance.api.crateApiRequestRules(statePath: statePath);
+Future<void> requestRules({required String statePath, required List<int> stateKey}) =>
+    RustLib.instance.api.crateApiRequestRules(statePath: statePath, stateKey: stateKey);
 
-Future<void> setRules({required String statePath, required Rules rules}) =>
-    RustLib.instance.api.crateApiSetRules(statePath: statePath, rules: rules);
+Future<void> setRules({required String statePath, required List<int> stateKey, required Rules rules}) =>
+    RustLib.instance.api.crateApiSetRules(statePath: statePath, stateKey: stateKey, rules: rules);
 
-Future<void> answer({required String statePath, required String id, required bool approve, required int minutes}) =>
-    RustLib.instance.api.crateApiAnswer(statePath: statePath, id: id, approve: approve, minutes: minutes);
+Future<void> answer({
+  required String statePath,
+  required List<int> stateKey,
+  required String id,
+  required bool approve,
+  required int minutes,
+}) => RustLib.instance.api.crateApiAnswer(
+  statePath: statePath,
+  stateKey: stateKey,
+  id: id,
+  approve: approve,
+  minutes: minutes,
+);
 
 /// Stream of messages from the PC. Runs until the Dart side stops listening.
-Stream<Msg> listen({required String statePath}) => RustLib.instance.api.crateApiListen(statePath: statePath);
+Stream<Msg> listen({required String statePath, required List<int> stateKey}) =>
+    RustLib.instance.api.crateApiListen(statePath: statePath, stateKey: stateKey);
 
 class AppRule {
   final String app;

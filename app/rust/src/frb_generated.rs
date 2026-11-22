@@ -70,6 +70,7 @@ fn wire__crate__api__answer_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_state_key = <Vec<u8>>::sse_decode(&mut deserializer);
             let api_id = <String>::sse_decode(&mut deserializer);
             let api_approve = <bool>::sse_decode(&mut deserializer);
             let api_minutes = <u32>::sse_decode(&mut deserializer);
@@ -77,8 +78,13 @@ fn wire__crate__api__answer_impl(
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok =
-                            crate::api::answer(api_state_path, api_id, api_approve, api_minutes)?;
+                        let output_ok = crate::api::answer(
+                            api_state_path,
+                            api_state_key,
+                            api_id,
+                            api_approve,
+                            api_minutes,
+                        )?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )
@@ -108,9 +114,10 @@ fn wire__crate__api__is_paired_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_state_key = <Vec<u8>>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
-                let output_ok = Ok::<_, ()>(crate::api::is_paired(api_state_path))?;
+                let output_ok = Ok::<_, ()>(crate::api::is_paired(api_state_path, api_state_key))?;
                 std::result::Result::Ok(output_ok)
             })())
         },
@@ -139,6 +146,7 @@ fn wire__crate__api__listen_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_state_key = <Vec<u8>>::sse_decode(&mut deserializer);
             let api_sink = <StreamSink<
                 crate::api::Msg,
                 flutter_rust_bridge::for_generated::SseCodec,
@@ -147,7 +155,8 @@ fn wire__crate__api__listen_impl(
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok = crate::api::listen(api_state_path, api_sink)?;
+                        let output_ok =
+                            crate::api::listen(api_state_path, api_state_key, api_sink)?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )
@@ -178,13 +187,19 @@ fn wire__crate__api__pair_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_state_key = <Vec<u8>>::sse_decode(&mut deserializer);
             let api_qr = <String>::sse_decode(&mut deserializer);
             let api_phone_name = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok = crate::api::pair(api_state_path, api_qr, api_phone_name)?;
+                        let output_ok = crate::api::pair(
+                            api_state_path,
+                            api_state_key,
+                            api_qr,
+                            api_phone_name,
+                        )?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )
@@ -215,11 +230,12 @@ fn wire__crate__api__request_history_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_state_key = <Vec<u8>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok = crate::api::request_history(api_state_path)?;
+                        let output_ok = crate::api::request_history(api_state_path, api_state_key)?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )
@@ -250,11 +266,12 @@ fn wire__crate__api__request_rules_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_state_key = <Vec<u8>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok = crate::api::request_rules(api_state_path)?;
+                        let output_ok = crate::api::request_rules(api_state_path, api_state_key)?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )
@@ -285,11 +302,12 @@ fn wire__crate__api__request_status_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_state_key = <Vec<u8>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok = crate::api::request_status(api_state_path)?;
+                        let output_ok = crate::api::request_status(api_state_path, api_state_key)?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )
@@ -320,12 +338,14 @@ fn wire__crate__api__set_rules_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_state_path = <String>::sse_decode(&mut deserializer);
+            let api_state_key = <Vec<u8>>::sse_decode(&mut deserializer);
             let api_rules = <crate::api::Rules>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok = crate::api::set_rules(api_state_path, api_rules)?;
+                        let output_ok =
+                            crate::api::set_rules(api_state_path, api_state_key, api_rules)?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )

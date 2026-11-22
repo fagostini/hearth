@@ -30,7 +30,7 @@ void main() {
     'pair, get status, receive a request, approve it',
     () async {
       final dir = Directory.systemTemp.createTempSync('hearth-e2e');
-      final hub = Hub('${dir.path}/pairing.json');
+      final hub = Hub('${dir.path}/pairing.bin', Uint8List(32));
       expect(hub.paired, isFalse);
 
       await hub.pair(qr!);
@@ -57,7 +57,7 @@ void main() {
   test(
     'rules and history: read, change, refuse a bad change',
     () async {
-      final hub = Hub('${Directory.systemTemp.createTempSync('hearth-e2e').path}/pairing.json');
+      final hub = Hub('${Directory.systemTemp.createTempSync('hearth-e2e').path}/pairing.bin', Uint8List(32));
       await hub.pair(qr2!);
       await until(() => hub.rules.isNotEmpty && hub.history.isNotEmpty, 'rules and history');
       final user = hub.rules.keys.first;
@@ -76,7 +76,7 @@ void main() {
         web: rust.WebRule(safesearch: true, block: ['example.org']),
       );
       hub.rules.remove(user); // so we wait for the PC's answer, not our own copy
-      await rust.setRules(statePath: hub.statePath, rules: want);
+      await rust.setRules(statePath: hub.statePath, stateKey: hub.stateKey, rules: want);
       await until(() => hub.rules[user]?.schoolMinutes == want.schoolMinutes, 'rules applied');
       expect(hub.rules[user]!.web!.block, ['example.org']);
       print('APPLIED school=${hub.rules[user]!.schoolMinutes} web=${hub.rules[user]!.web!.block}');
@@ -90,7 +90,7 @@ void main() {
         apps: const [],
         web: null,
       );
-      await rust.setRules(statePath: hub.statePath, rules: bad);
+      await rust.setRules(statePath: hub.statePath, stateKey: hub.stateKey, rules: bad);
       await until(() => hub.notice != null, 'refusal notice');
       print('NOTICE ${hub.notice}');
       expect(hub.rules[user]!.schoolMinutes, want.schoolMinutes, reason: 'refused change must not apply');

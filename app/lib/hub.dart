@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'model.dart';
@@ -10,19 +13,30 @@ import 'src/rust/api.dart' as rust;
 /// Live state from the paired PC. Until a phone is paired, or before the first status
 /// arrives, the screens fall back to demo data (and say so).
 class Hub extends ChangeNotifier {
-  Hub(this.statePath);
+  Hub(this.statePath, this.stateKey);
 
-  /// Pairing file in the app's private storage.
+  /// Pairing file in the app's private storage, encrypted with [stateKey].
   final String statePath;
+
+  /// 32 random bytes kept in the platform keystore (Android Keystore, iOS Keychain,
+  /// libsecret on Linux), so a copy of the app's files alone can't impersonate the phone.
+  final Uint8List stateKey;
 
   static Future<Hub> open() async {
     final dir = await getApplicationSupportDirectory();
-    final hub = Hub('${dir.path}/pairing.json');
+    const store = FlutterSecureStorage();
+    var key = await store.read(key: 'pairing_key');
+    if (key == null) {
+      final r = Random.secure();
+      key = base64Encode(List.generate(32, (_) => r.nextInt(256)));
+      await store.write(key: 'pairing_key', value: key);
+    }
+    final hub = Hub('${dir.path}/pairing.bin', base64Decode(key));
     if (hub.paired) hub.start();
     return hub;
   }
 
-  bool get paired => rust.isPaired(statePath: statePath);
+  bool get paired => rust.isPaired(statePath: statePath, stateKey: stateKey);
 
   List<Child>? children; // null = no status yet
   final Map<String, rust.Rules> rules = {}; // by Linux username
@@ -39,7 +53,7 @@ class Hub extends ChangeNotifier {
   void start() {
     _sub?.cancel();
     _sub = rust
-        .listen(statePath: statePath)
+        .listen(statePath: statePath, stateKey: stateKey)
         .listen(
           _on,
           onError: (Object e) {
@@ -49,7 +63,7 @@ class Hub extends ChangeNotifier {
         );
     // Ask for everything right away (the PC only sends on changes otherwise).
     for (final ask in [rust.requestStatus, rust.requestRules, rust.requestHistory]) {
-      ask(statePath: statePath).catchError((Object e) {
+      ask(statePath: statePath, stateKey: stateKey).catchError((Object e) {
         problem = '$e';
         notifyListeners();
       });
@@ -91,18 +105,18 @@ class Hub extends ChangeNotifier {
 
   /// ponytail: fixed name; a "name this phone" field when there are settings.
   Future<void> pair(String code) async {
-    await rust.pair(statePath: statePath, qr: code, phoneName: "Parent's phone");
+    await rust.pair(statePath: statePath, stateKey: stateKey, qr: code, phoneName: "Parent's phone");
     start();
     notifyListeners();
   }
 
-  Future<void> refreshHistory() => rust.requestHistory(statePath: statePath);
+  Future<void> refreshHistory() => rust.requestHistory(statePath: statePath, stateKey: stateKey);
 
   /// Send a child's new rules. The PC answers with the rules in force (or a notice).
   Future<void> saveRules(rust.Rules r) async {
     rules[r.user] = r;
     notifyListeners();
-    await rust.setRules(statePath: statePath, rules: r);
+    await rust.setRules(statePath: statePath, stateKey: stateKey, rules: r);
   }
 
   /// Colour set for a child, stable across screens: by position in the PC's list.
@@ -113,7 +127,7 @@ class Hub extends ChangeNotifier {
 
   /// Answer a request; removes it from the list once sent.
   Future<void> answer(TimeRequest r, {required bool approve, required int minutes}) async {
-    await rust.answer(statePath: statePath, id: r.id, approve: approve, minutes: minutes);
+    await rust.answer(statePath: statePath, stateKey: stateKey, id: r.id, approve: approve, minutes: minutes);
     requests.removeWhere((x) => x.id == r.id);
     notifyListeners();
   }
