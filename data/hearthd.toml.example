@@ -1,4 +1,4 @@
-# /etc/hearth/hearthd.toml — rules for hearthd (moves to the parent app in M5).
+# /etc/hearth/hearthd.toml — rules for hearthd (moves to the parent app in M6).
 # Admin accounts (sudo/wheel/admin group, or any sudo rights) are always ignored.
 # ntfy server for the parent's phone (self-hosted or https://ntfy.sh). Pair with: sudo hearthd pair
 # relay = "https://ntfy.example.org"
