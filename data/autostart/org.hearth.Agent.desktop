@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Hearth
+Comment=Screen time warnings
+Exec=/usr/bin/hearth-agent
+NoDisplay=true
+X-GNOME-Autostart-Phase=Applications

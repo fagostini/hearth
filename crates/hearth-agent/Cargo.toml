@@ -1,0 +1,8 @@
+[package]
+name = "hearth-agent"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.54.1", features = ["rt", "macros", "time"] }
+zbus = { version = "6.5.0", default-features = false, features = ["tokio", "proxy"] }

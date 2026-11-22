@@ -1,10 +1,11 @@
 mod accounting;
+mod api;
 mod activity;
 mod config;
 mod session;
 mod store;
 
-use accounting::{action, capped, counts, outside, Action};
+use accounting::{action, capped, counts, outside, remaining, Action};
 use chrono::Datelike;
 use anyhow::Context;
 use std::{collections::HashMap, env, fs, path::PathBuf, time::{Duration, Instant}};
@@ -69,7 +70,12 @@ async fn main() -> anyhow::Result<()> {
     let activity = activity::Activity::default();
     tokio::spawn(activity.clone().watch());
 
-    let conn = zbus::Connection::system().await?;
+    let status = api::Shared::default();
+    let conn = zbus::connection::Builder::system()
+        .serve_at("/org/hearth/Daemon1", api::Api(status.clone()))
+        .name("org.hearth.Daemon1")
+        .build()
+        .await?;
     let mgr = session::ManagerProxy::new(&conn).await?;
 
     let mut ending: HashMap<String, Instant> = HashMap::new(); // session id -> SIGTERM sent
@@ -123,6 +129,9 @@ async fn main() -> anyhow::Result<()> {
                 info!(user = c.user, reason = if over_limit { "daily limit" } else { "outside allowed hours" }, "enforcing");
                 c.over_since = Some(now);
             }
+            let left = remaining(Duration::from_secs(today.minutes * 60), c.used, today.window, wall.time());
+            let state = if c.over_since.is_some() { "over" } else { "ok" };
+            status.lock().unwrap().insert(c.uid, (left.as_secs() as i64, state.into()));
             for s in mine {
                 let res = match action(c.over_since.map(|t| now - t), grace, s.locked) {
                     Action::Nothing => continue,

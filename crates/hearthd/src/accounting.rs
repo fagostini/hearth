@@ -20,6 +20,22 @@ pub fn outside(window: Option<(chrono::NaiveTime, chrono::NaiveTime)>, now: chro
     window.is_some_and(|(a, b)| now < a || now >= b)
 }
 
+/// Time left today: the smaller of what's left of the daily limit and what's left
+/// of the allowed window. Zero outside the window.
+pub fn remaining(
+    limit: Duration,
+    used: Duration,
+    window: Option<(chrono::NaiveTime, chrono::NaiveTime)>,
+    now: chrono::NaiveTime,
+) -> Duration {
+    let by_limit = limit.saturating_sub(used);
+    match window {
+        Some(w) if outside(Some(w), now) => Duration::ZERO,
+        Some((_, end)) => by_limit.min((end - now).to_std().unwrap_or_default()),
+        None => by_limit,
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Action {
     Nothing,
@@ -66,6 +82,11 @@ mod tests {
         assert!(!outside(w, t("07:00")));
         assert!(outside(w, t("20:00")));
         assert!(!outside(None, t("03:00")));
+        let r = |used, w, now| remaining(S(3600), S(used), w, t(now)).as_secs();
+        assert_eq!(r(600, None, "12:00"), 3000);
+        assert_eq!(r(4000, None, "12:00"), 0);
+        assert_eq!(r(0, w, "19:50"), 600); // window ends first
+        assert_eq!(r(0, w, "21:00"), 0); // outside
     }
 
     #[test]

@@ -236,6 +236,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "hearth-agent"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "zbus",
+]
+
+[[package]]
 name = "hearthd"
 version = "0.1.0"
 dependencies = [
