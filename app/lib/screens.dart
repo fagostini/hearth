@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'hub.dart';
 import 'main.dart';
@@ -291,20 +294,22 @@ class TodayScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
         ],
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            border: Border.all(color: C.line),
-            borderRadius: BorderRadius.circular(18),
+        // ponytail: demo only until the PC reports filtering stats.
+        if (!live)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border.all(color: C.line),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.shield_outlined, size: 20, color: C.muted),
+                const SizedBox(width: 12),
+                Text('SafeSearch on · 4 sites blocked today', style: body(13, color: C.muted)),
+              ],
+            ),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.shield_outlined, size: 20, color: C.muted),
-              const SizedBox(width: 12),
-              Text('SafeSearch on · 4 sites blocked today', style: body(13, color: C.muted)),
-            ],
-          ),
-        ),
         if (!live) ...[
           const SizedBox(height: 14),
           Center(
@@ -563,7 +568,9 @@ class _RequestScreenState extends State<RequestScreen> {
               const SizedBox(height: 8),
               Text(
                 approved!
-                    ? '${c.name} can unlock the screen now and has $minutes more minutes today.'
+                    ? c.locked
+                          ? '${c.name} can unlock the screen now and has $minutes more minutes today.'
+                          : '${c.name} now has $minutes more minutes today.'
                     : '${c.name} sees “Your parent said no this time.” The screen stays locked.',
                 textAlign: TextAlign.center,
                 style: body(14, color: const Color(0xFFD7DAE8), height: 1.45),
@@ -1047,6 +1054,35 @@ class PairScreen extends StatefulWidget {
 class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateMixin {
   late final AnimationController scan = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
 
+  /// Camera only where the scanner plugin exists (Android, iOS); the desktop app
+  /// shows the placeholder and pairs by typing the code.
+  final bool camera = Platform.isAndroid || Platform.isIOS;
+  late final MobileScannerController? scanner = camera
+      ? MobileScannerController(formats: const [BarcodeFormat.qrCode], detectionSpeed: DetectionSpeed.noDuplicates)
+      : null;
+  bool busy = false;
+  String? error;
+
+  Future<void> _onDetect(BarcodeCapture capture) async {
+    final code = capture.barcodes.firstOrNull?.rawValue;
+    final h = hub;
+    if (code == null || busy || h == null) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await h.pair(code);
+      if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        setState(() => error = pairingError(code, e));
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -1055,6 +1091,7 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    scanner?.dispose();
     scan.dispose();
     super.dispose();
   }
@@ -1064,6 +1101,7 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
     const ember = Color(0xFFE8622C);
     return Scaffold(
       backgroundColor: C.night,
+      resizeToAvoidBottomInset: false, // the code dialog brings its own room for the keyboard
       appBar: AppBar(backgroundColor: C.night, foregroundColor: Colors.white, automaticallyImplyLeading: !widget.first),
       body: SafeArea(
         child: Padding(
@@ -1096,15 +1134,27 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
                 child: Container(
                   width: 260,
                   height: 260,
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(color: C.nightCard, borderRadius: BorderRadius.circular(28)),
-                  child: AnimatedBuilder(
-                    animation: scan,
-                    builder: (_, _) => CustomPaint(painter: _ViewfinderPainter(scan.value, ember)),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (camera) MobileScanner(controller: scanner, onDetect: _onDetect),
+                      AnimatedBuilder(
+                        animation: scan,
+                        builder: (_, _) =>
+                            CustomPaint(painter: _ViewfinderPainter(scan.value, ember, placeholder: !camera)),
+                      ),
+                    ],
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-              Text('Each code works once, for 10 minutes.', style: body(13, color: const Color(0xFFC9CCDD))),
+              Text(
+                busy ? 'Pairing…' : (error ?? 'Each code works once, for 10 minutes.'),
+                textAlign: TextAlign.center,
+                style: body(13, color: error == null ? const Color(0xFFC9CCDD) : const Color(0xFFFFB59A)),
+              ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -1143,6 +1193,16 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
   }
 }
 
+/// What to tell the parent when pairing fails. Details go to the log, not the screen.
+String pairingError(String code, Object e) {
+  debugPrint('pairing failed: $e');
+  final t = code.trim();
+  if (!t.startsWith('{') || !t.contains('"secret"')) return 'That isn\'t a Hearth pairing code.';
+  if (!t.endsWith('}')) return 'Part of the code is missing. Copy all of it, or show a new code on the PC.';
+  if ('$e'.contains('relay')) return 'Can\'t reach the relay. Check the phone is online and try again.';
+  return 'That code didn\'t work. Show a new code on the PC and try again.';
+}
+
 /// Paste the code shown on the PC (`sudo hearthd pair --text` prints it).
 Future<void> _typeCode(BuildContext context) async {
   final field = TextEditingController();
@@ -1174,7 +1234,7 @@ Future<void> _typeCode(BuildContext context) async {
                 if (ctx.mounted) Navigator.of(ctx).pop();
                 if (context.mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
               } catch (e) {
-                set(() => error = 'That code didn\'t work: $e');
+                set(() => error = pairingError(field.text, e));
               }
             },
             child: const Text('Pair'),
@@ -1186,9 +1246,10 @@ Future<void> _typeCode(BuildContext context) async {
 }
 
 class _ViewfinderPainter extends CustomPainter {
-  _ViewfinderPainter(this.t, this.color);
+  _ViewfinderPainter(this.t, this.color, {required this.placeholder});
   final double t;
   final Color color;
+  final bool placeholder; // grey square where the camera picture would be
 
   @override
   void paint(Canvas canvas, Size s) {
@@ -1211,13 +1272,15 @@ class _ViewfinderPainter extends CustomPainter {
         ..lineTo(x + dx * l, y);
       canvas.drawPath(path, p);
     }
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: s.center(Offset.zero), width: 136, height: 136),
-        const Radius.circular(10),
-      ),
-      Paint()..color = Colors.white.withValues(alpha: 0.14),
-    );
+    if (placeholder) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: s.center(Offset.zero), width: 136, height: 136),
+          const Radius.circular(10),
+        ),
+        Paint()..color = Colors.white.withValues(alpha: 0.14),
+      );
+    }
     final y = 32 + (s.height - 64) * t;
     canvas.drawLine(
       Offset(32, y),

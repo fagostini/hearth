@@ -55,7 +55,7 @@ class Hub extends ChangeNotifier {
         this.children = [for (final (i, k) in children.indexed) _child(i, k)];
         problem = null;
       case rust.Msg_Request(:final id, :final user, :final minutes, :final reason):
-        final kid = children?.where((c) => c.name == user).firstOrNull ?? _child(0, null, name: user);
+        final kid = children?.where((c) => c.name == _display(user)).firstOrNull ?? _child(0, null, name: user);
         requests.removeWhere((r) => r.id == id);
         requests.insert(
           0,
@@ -94,7 +94,7 @@ class Hub extends ChangeNotifier {
     final limit = leftS < 0 ? 0 : used + (leftS + 59) ~/ 60;
     final over = k?.over ?? false;
     return Child(
-      name: k?.user ?? name ?? '?',
+      name: _display(k?.user ?? name ?? '?'),
       color: p.$1,
       tint: p.$2,
       ink: p.$3,
@@ -105,6 +105,10 @@ class Hub extends ChangeNotifier {
       pill: over ? 'Limit reached' : (limit == 0 ? 'No limit' : '${hm(limit - used)} left'),
     );
   }
+
+  /// Linux usernames are lower case ("mia"); show "Mia".
+  /// ponytail: a display name per child comes with editable rules.
+  static String _display(String user) => user.isEmpty ? user : user[0].toUpperCase() + user.substring(1);
 
   /// Signature colours per child, in order: (colour, tint, ink on tint).
   static const palette = [

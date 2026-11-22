@@ -51,7 +51,9 @@ pub fn pair(path: &Path, qr: &str, phone_name: &str) -> Result<()> {
     let me = Identity::generate();
     let (req, pc) = PairRequest::new(&me, &offer, phone_name)?;
     let _g = LOCK.lock().unwrap();
-    ureq::post(&format!("{}/{}", offer.relay, offer.topic)).send(serde_json::to_string(&req)?)?;
+    ureq::post(&format!("{}/{}", offer.relay, offer.topic))
+        .send(serde_json::to_string(&req)?)
+        .context("can't reach the relay")?;
     save(path, &State { key: B64.encode(me.to_bytes()), relay: offer.relay, topic: offer.topic, pc })
 }
 
@@ -63,13 +65,13 @@ pub fn send(path: &Path, body: Body) -> Result<()> {
     save(path, &st)?; // counter first: a lost send is fine, a reused counter is not
     let url = format!("{}/{}", st.relay, st.topic);
     drop(_g);
-    ureq::post(&url).send(env)?;
+    ureq::post(&url).send(env).context("can't reach the relay")?;
     Ok(())
 }
 
 /// Receive messages from the PC until `on_message` returns false. Reconnects with
-/// backoff and resumes from the last message id. Errors that aren't about the network
-/// (tampered or replayed messages) are reported through `on_error` and skipped.
+/// backoff and resumes from the last message id. `on_error` hears about connection
+/// problems only; messages that fail to open (tampered, replayed) are dropped.
 pub fn listen(path: &Path, mut on_message: impl FnMut(Body) -> bool, mut on_error: impl FnMut(String)) -> Result<()> {
     let (relay, topic) = {
         let (st, _) = load(path)?;
@@ -97,8 +99,10 @@ pub fn listen(path: &Path, mut on_message: impl FnMut(Body) -> bool, mut on_erro
                     let opened = {
                         let _g = LOCK.lock().unwrap();
                         let (mut st, me) = load(path)?;
-                        if env.from != st.pc.public {
-                            continue; // our own message, or another phone's
+                        // The topic is shared by every phone paired with this PC: skip
+                        // what isn't from the PC to us (our own sends, other phones' mail).
+                        if env.from != st.pc.public || env.to != B64.encode(me.public()) {
+                            continue;
                         }
                         let r = Channel::new(&me, &mut st.pc).and_then(|mut c| c.open(text));
                         save(path, &st)?;
@@ -110,7 +114,7 @@ pub fn listen(path: &Path, mut on_message: impl FnMut(Body) -> bool, mut on_erro
                                 return Ok(());
                             }
                         }
-                        Err(e) => on_error(e.to_string()),
+                        Err(_) => {} // ponytail: dropped silently; count them if it ever matters
                     }
                 }
             }
