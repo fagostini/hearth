@@ -281,6 +281,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           reason: dco_decode_String(raw[4]),
         );
       case 2:
+        return Msg_Online();
+      case 3:
         return Msg_Problem(text: dco_decode_String(raw[1]));
       default:
         throw Exception("unreachable");
@@ -382,6 +384,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_reason = sse_decode_String(deserializer);
         return Msg_Request(id: var_id, user: var_user, minutes: var_minutes, reason: var_reason);
       case 2:
+        return Msg_Online();
+      case 3:
         var var_text = sse_decode_String(deserializer);
         return Msg_Problem(text: var_text);
       default:
@@ -485,8 +489,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(user, serializer);
         sse_encode_u_32(minutes, serializer);
         sse_encode_String(reason, serializer);
-      case Msg_Problem(text: final text):
+      case Msg_Online():
         sse_encode_i_32(2, serializer);
+      case Msg_Problem(text: final text):
+        sse_encode_i_32(3, serializer);
         sse_encode_String(text, serializer);
     }
   }

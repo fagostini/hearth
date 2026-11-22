@@ -56,12 +56,13 @@ extension MsgPatterns on Msg {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( Msg_Status value)?  status,TResult Function( Msg_Request value)?  request,TResult Function( Msg_Problem value)?  problem,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( Msg_Status value)?  status,TResult Function( Msg_Request value)?  request,TResult Function( Msg_Online value)?  online,TResult Function( Msg_Problem value)?  problem,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case Msg_Status() when status != null:
 return status(_that);case Msg_Request() when request != null:
-return request(_that);case Msg_Problem() when problem != null:
+return request(_that);case Msg_Online() when online != null:
+return online(_that);case Msg_Problem() when problem != null:
 return problem(_that);case _:
   return orElse();
 
@@ -80,12 +81,13 @@ return problem(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( Msg_Status value)  status,required TResult Function( Msg_Request value)  request,required TResult Function( Msg_Problem value)  problem,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( Msg_Status value)  status,required TResult Function( Msg_Request value)  request,required TResult Function( Msg_Online value)  online,required TResult Function( Msg_Problem value)  problem,}){
 final _that = this;
 switch (_that) {
 case Msg_Status():
 return status(_that);case Msg_Request():
-return request(_that);case Msg_Problem():
+return request(_that);case Msg_Online():
+return online(_that);case Msg_Problem():
 return problem(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
@@ -100,12 +102,13 @@ return problem(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( Msg_Status value)?  status,TResult? Function( Msg_Request value)?  request,TResult? Function( Msg_Problem value)?  problem,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( Msg_Status value)?  status,TResult? Function( Msg_Request value)?  request,TResult? Function( Msg_Online value)?  online,TResult? Function( Msg_Problem value)?  problem,}){
 final _that = this;
 switch (_that) {
 case Msg_Status() when status != null:
 return status(_that);case Msg_Request() when request != null:
-return request(_that);case Msg_Problem() when problem != null:
+return request(_that);case Msg_Online() when online != null:
+return online(_that);case Msg_Problem() when problem != null:
 return problem(_that);case _:
   return null;
 
@@ -123,11 +126,12 @@ return problem(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<Kid> children)?  status,TResult Function( String id,  String user,  int minutes,  String reason)?  request,TResult Function( String text)?  problem,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<Kid> children)?  status,TResult Function( String id,  String user,  int minutes,  String reason)?  request,TResult Function()?  online,TResult Function( String text)?  problem,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case Msg_Status() when status != null:
 return status(_that.children);case Msg_Request() when request != null:
-return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Problem() when problem != null:
+return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Online() when online != null:
+return online();case Msg_Problem() when problem != null:
 return problem(_that.text);case _:
   return orElse();
 
@@ -146,11 +150,12 @@ return problem(_that.text);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<Kid> children)  status,required TResult Function( String id,  String user,  int minutes,  String reason)  request,required TResult Function( String text)  problem,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<Kid> children)  status,required TResult Function( String id,  String user,  int minutes,  String reason)  request,required TResult Function()  online,required TResult Function( String text)  problem,}) {final _that = this;
 switch (_that) {
 case Msg_Status():
 return status(_that.children);case Msg_Request():
-return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Problem():
+return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Online():
+return online();case Msg_Problem():
 return problem(_that.text);}
 }
 /// A variant of `when` that fallback to returning `null`
@@ -165,11 +170,12 @@ return problem(_that.text);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<Kid> children)?  status,TResult? Function( String id,  String user,  int minutes,  String reason)?  request,TResult? Function( String text)?  problem,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<Kid> children)?  status,TResult? Function( String id,  String user,  int minutes,  String reason)?  request,TResult? Function()?  online,TResult? Function( String text)?  problem,}) {final _that = this;
 switch (_that) {
 case Msg_Status() when status != null:
 return status(_that.children);case Msg_Request() when request != null:
-return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Problem() when problem != null:
+return request(_that.id,_that.user,_that.minutes,_that.reason);case Msg_Online() when online != null:
+return online();case Msg_Problem() when problem != null:
 return problem(_that.text);case _:
   return null;
 
@@ -325,6 +331,38 @@ as String,
 
 
 }
+
+/// @nodoc
+
+
+class Msg_Online extends Msg {
+  const Msg_Online(): super._();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is Msg_Online);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+    return 'Msg.online()';
+}
+
+
+}
+
+
+
 
 /// @nodoc
 

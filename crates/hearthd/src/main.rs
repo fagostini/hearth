@@ -30,7 +30,9 @@ struct Child {
     over_since: Option<Instant>,
     /// Extra time a parent approved today, and the id of an unanswered request.
     bonus: Duration,
-    pending: Option<String>,
+    /// Unanswered request: (id, minutes, reason). Resent when a phone asks for a
+    /// status, so a phone that restarted (or paired later) still sees it.
+    pending: Option<(String, u32, String)>,
     /// Latest answer shown to the child: (counter, text).
     answer: (u32, String),
 }
@@ -175,7 +177,7 @@ async fn main() -> anyhow::Result<()> {
                             (Some(c), Some(r)) => {
                                 let id = format!("{}-{}", c.uid, chrono::Utc::now().timestamp());
                                 info!(user = c.user, minutes, "asking parent for more time");
-                                c.pending = Some(id.clone());
+                                c.pending = Some((id.clone(), minutes, reason.clone()));
                                 r.broadcast(hearth_core::Body::ExtensionRequest { id, user: c.user.clone(), minutes, reason });
                                 "Asked. You'll get a notification when your parent answers.".into()
                             }
@@ -188,9 +190,16 @@ async fn main() -> anyhow::Result<()> {
             Some(text) = relay_rx.recv() => {
                 let Some(r) = relay.as_mut() else { continue };
                 match r.receive(&text) {
-                    Some(hearth_core::Body::GetStatus) => r.broadcast(status_body(&children, &status)),
+                    Some(hearth_core::Body::GetStatus) => {
+                        r.broadcast(status_body(&children, &status));
+                        for c in &children {
+                            if let Some((id, minutes, reason)) = &c.pending {
+                                r.broadcast(hearth_core::Body::ExtensionRequest { id: id.clone(), user: c.user.clone(), minutes: *minutes, reason: reason.clone() });
+                            }
+                        }
+                    }
                     Some(hearth_core::Body::ExtensionReply { id, approve, minutes }) => {
-                        if let Some(c) = children.iter_mut().find(|c| c.pending.as_deref() == Some(id.as_str())) {
+                        if let Some(c) = children.iter_mut().find(|c| c.pending.as_ref().is_some_and(|p| p.0 == id)) {
                             c.pending = None;
                             let text = if approve {
                                 let m = minutes.min(240);

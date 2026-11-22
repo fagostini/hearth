@@ -55,12 +55,15 @@ class Hub extends ChangeNotifier {
         this.children = [for (final (i, k) in children.indexed) _child(i, k)];
         problem = null;
       case rust.Msg_Request(:final id, :final user, :final minutes, :final reason):
+        problem = null;
         final kid = children?.where((c) => c.name == _display(user)).firstOrNull ?? _child(0, null, name: user);
         requests.removeWhere((r) => r.id == id);
         requests.insert(
           0,
           TimeRequest(id: id, child: kid, minutes: minutes, reason: reason, lockedAt: '', bedtime: ''),
         );
+      case rust.Msg_Online():
+        problem = null;
       case rust.Msg_Problem(:final text):
         problem = text;
     }

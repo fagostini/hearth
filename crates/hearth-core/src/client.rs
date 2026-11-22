@@ -70,9 +70,10 @@ pub fn send(path: &Path, body: Body) -> Result<()> {
 }
 
 /// Receive messages from the PC until `on_message` returns false. Reconnects with
-/// backoff and resumes from the last message id. `on_error` hears about connection
-/// problems only; messages that fail to open (tampered, replayed) are dropped.
-pub fn listen(path: &Path, mut on_message: impl FnMut(Body) -> bool, mut on_error: impl FnMut(String)) -> Result<()> {
+/// backoff and resumes from the last message id. `on_link` hears the connection
+/// state: `None` when connected, `Some(reason)` when not. Messages that fail to open
+/// (tampered, replayed) are dropped.
+pub fn listen(path: &Path, mut on_message: impl FnMut(Body) -> bool, mut on_link: impl FnMut(Option<String>)) -> Result<()> {
     let (relay, topic) = {
         let (st, _) = load(path)?;
         (st.relay, st.topic)
@@ -87,6 +88,7 @@ pub fn listen(path: &Path, mut on_message: impl FnMut(Body) -> bool, mut on_erro
         match ureq::get(&url).call() {
             Ok(resp) => {
                 backoff = 1;
+                on_link(None);
                 for line in std::io::BufReader::new(resp.into_body().into_reader()).lines() {
                     let Ok(line) = line else { break };
                     let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
@@ -118,7 +120,7 @@ pub fn listen(path: &Path, mut on_message: impl FnMut(Body) -> bool, mut on_erro
                     }
                 }
             }
-            Err(e) => on_error(format!("relay: {e}")),
+            Err(e) => on_link(Some(format!("relay: {e}"))),
         }
         std::thread::sleep(Duration::from_secs(backoff));
         backoff = (backoff * 2).min(60);

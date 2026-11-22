@@ -18,7 +18,9 @@ pub struct Kid {
 pub enum Msg {
     Status { children: Vec<Kid> },
     Request { id: String, user: String, minutes: u32, reason: String },
-    /// Something went wrong that the parent may want to know (relay down, bad message).
+    /// Connected to the relay again.
+    Online,
+    /// Can't reach the relay; retrying.
     Problem { text: String },
 }
 
@@ -57,8 +59,11 @@ pub fn listen(state_path: String, sink: StreamSink<Msg>) -> anyhow::Result<()> {
             };
             sink.add(msg).is_ok() // false once Dart has cancelled the stream
         },
-        |text| {
-            let _ = sink.add(Msg::Problem { text });
+        |link| {
+            let _ = sink.add(match link {
+                None => Msg::Online,
+                Some(text) => Msg::Problem { text },
+            });
         },
     )
 }

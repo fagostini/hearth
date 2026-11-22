@@ -41,7 +41,11 @@ fn main() -> anyhow::Result<()> {
                     }
                     true
                 },
-                |e| println!("rejected: {e}"),
+                |link| {
+                    if let Some(e) = link {
+                        println!("relay problem: {e}");
+                    }
+                },
             )?;
         }
         _ => eprintln!("usage: phone pair <qr> [name] | status | listen [--approve N|--decline]"),

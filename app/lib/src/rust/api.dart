@@ -56,6 +56,9 @@ sealed class Msg with _$Msg {
   const factory Msg.request({required String id, required String user, required int minutes, required String reason}) =
       Msg_Request;
 
-  /// Something went wrong that the parent may want to know (relay down, bad message).
+  /// Connected to the relay again.
+  const factory Msg.online() = Msg_Online;
+
+  /// Can't reach the relay; retrying.
   const factory Msg.problem({required String text}) = Msg_Problem;
 }

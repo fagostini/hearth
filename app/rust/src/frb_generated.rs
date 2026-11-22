@@ -332,6 +332,9 @@ impl SseDecode for crate::api::Msg {
                 };
             }
             2 => {
+                return crate::api::Msg::Online;
+            }
+            3 => {
                 let mut var_text = <String>::sse_decode(deserializer);
                 return crate::api::Msg::Problem { text: var_text };
             }
@@ -438,8 +441,9 @@ impl flutter_rust_bridge::IntoDart for crate::api::Msg {
                 reason.into_into_dart().into_dart(),
             ]
             .into_dart(),
+            crate::api::Msg::Online => [2.into_dart()].into_dart(),
             crate::api::Msg::Problem { text } => {
-                [2.into_dart(), text.into_into_dart().into_dart()].into_dart()
+                [3.into_dart(), text.into_into_dart().into_dart()].into_dart()
             }
             _ => {
                 unimplemented!("");
@@ -539,8 +543,11 @@ impl SseEncode for crate::api::Msg {
                 <u32>::sse_encode(minutes, serializer);
                 <String>::sse_encode(reason, serializer);
             }
-            crate::api::Msg::Problem { text } => {
+            crate::api::Msg::Online => {
                 <i32>::sse_encode(2, serializer);
+            }
+            crate::api::Msg::Problem { text } => {
+                <i32>::sse_encode(3, serializer);
                 <String>::sse_encode(text, serializer);
             }
             _ => {
