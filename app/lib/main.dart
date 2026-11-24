@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'hub.dart';
+import 'push.dart';
 import 'screens.dart';
 import 'src/rust/frb_generated.dart';
 
@@ -10,8 +11,9 @@ Hub? hub;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
-  hub = await Hub.open();
+  final h = hub = await Hub.open();
   runApp(const HearthApp());
+  await Push.start(h);
 }
 
 /// Palette and type from the design canvas ("Hearth Parent App").

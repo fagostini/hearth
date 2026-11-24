@@ -19,6 +19,9 @@ struct State {
     identity: String,
     topic: String,
     peers: Vec<Peer>,
+    /// Phone public key -> UnifiedPush endpoint (wake-ups while the app is closed).
+    #[serde(default)]
+    push: std::collections::HashMap<String, String>,
 }
 
 pub struct Relay {
@@ -27,6 +30,7 @@ pub struct Relay {
     identity: Identity,
     topic: String,
     peers: Vec<Peer>,
+    push: std::collections::HashMap<String, String>,
     offer: Option<(PairOffer, Instant)>,
 }
 
@@ -40,28 +44,28 @@ fn b64(b: &[u8]) -> String {
 
 impl Relay {
     pub fn open(url: &str, path: &Path) -> Result<Self> {
-        let (identity, topic, peers) = match fs::read_to_string(path) {
+        let (identity, topic, peers, push) = match fs::read_to_string(path) {
             Ok(s) => {
                 let st: State = serde_json::from_str(&s).context("relay.json")?;
                 let key = {
                     use base64::Engine;
                     base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&st.identity)?
                 };
-                (Identity::from_bytes(key.try_into().map_err(|_| anyhow::anyhow!("bad key"))?), st.topic, st.peers)
+                (Identity::from_bytes(key.try_into().map_err(|_| anyhow::anyhow!("bad key"))?), st.topic, st.peers, st.push)
             }
             Err(_) => {
                 let id = Identity::generate();
                 let topic = PairOffer::new(&id, url, None).topic;
-                (id, topic, Vec::new())
+                (id, topic, Vec::new(), Default::default())
             }
         };
-        let r = Self { url: url.trim_end_matches('/').into(), path: path.into(), identity, topic, peers, offer: None };
+        let r = Self { url: url.trim_end_matches('/').into(), path: path.into(), identity, topic, peers, push, offer: None };
         r.save()?;
         Ok(r)
     }
 
     fn save(&self) -> Result<()> {
-        let st = State { identity: b64(&self.identity.to_bytes()), topic: self.topic.clone(), peers: self.peers.clone() };
+        let st = State { identity: b64(&self.identity.to_bytes()), topic: self.topic.clone(), peers: self.peers.clone(), push: self.push.clone() };
         let tmp = self.path.with_extension("tmp");
         fs::write(&tmp, serde_json::to_vec_pretty(&st)?)?;
         fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
@@ -87,7 +91,16 @@ impl Relay {
         for i in 0..self.peers.len() {
             let sealed = Channel::new(&self.identity, &mut self.peers[i]).and_then(|mut c| c.seal(body.clone(), now));
             match sealed {
-                Ok(env) => publish(&self.url, &self.topic, env),
+                Ok(env) => {
+                    // Requests also wake a closed app: the same sealed envelope goes to
+                    // the phone's push endpoint. Nothing readable leaves the PC.
+                    if matches!(body, Body::ExtensionRequest { .. }) {
+                        if let Some(ep) = self.push.get(&self.peers[i].public) {
+                            post(ep.clone(), env.clone());
+                        }
+                    }
+                    publish(&self.url, &self.topic, env)
+                }
                 Err(e) => warn!(%e, "seal failed"),
             }
         }
@@ -126,6 +139,19 @@ impl Relay {
         let res = Channel::new(&self.identity, peer).and_then(|mut c| c.open(text));
         let _ = self.save();
         match res {
+            Ok(Body::SetPush { endpoint }) => {
+                match endpoint.filter(|e| push_endpoint_ok(e)) {
+                    Some(e) => {
+                        info!(phone = from.get(..8).unwrap_or(""), "push endpoint set");
+                        self.push.insert(from, e);
+                    }
+                    None => {
+                        self.push.remove(&from);
+                    }
+                }
+                let _ = self.save();
+                None
+            }
             Ok(b) => Some(b),
             Err(e) => {
                 warn!(%e, "message from phone rejected");
@@ -175,6 +201,22 @@ impl Relay {
     }
 }
 
+/// A UnifiedPush endpoint is a plain http(s) URL chosen by the phone's distributor.
+/// Only a paired (authenticated) phone can set one.
+/// ponytail: no private-address filtering; a paired parent is trusted not to aim the
+/// PC at its own LAN. Add it if phones ever come from less trusted places.
+fn push_endpoint_ok(e: &str) -> bool {
+    (e.starts_with("https://") || e.starts_with("http://")) && e.len() <= 2048 && !e.chars().any(char::is_whitespace)
+}
+
+fn post(url: String, body: String) {
+    std::thread::spawn(move || {
+        if let Err(e) = ureq::post(&url).send(body) {
+            warn!(%e, "push wake-up failed");
+        }
+    });
+}
+
 fn publish(url: &str, topic: &str, body: String) {
     let u = format!("{url}/{topic}");
     std::thread::spawn(move || {
@@ -182,4 +224,14 @@ fn publish(url: &str, topic: &str, body: String) {
             warn!(%e, "relay publish failed");
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn push_endpoints() {
+        assert!(super::push_endpoint_ok("https://ntfy.sh/upAbC123?up=1"));
+        assert!(!super::push_endpoint_ok("file:///etc/shadow"));
+        assert!(!super::push_endpoint_ok("https://x y"));
+    }
 }

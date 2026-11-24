@@ -137,8 +137,22 @@ pub fn listen(state_path: String, state_key: Vec<u8>, sink: StreamSink<Msg>) -> 
     client::listen(
         Path::new(&state_path),
         Some(&k),
-        |body| {
-            let msg = match body {
+        |body| match to_msg(body) {
+            Some(msg) => sink.add(msg).is_ok(), // false once Dart has cancelled the stream
+            None => true,
+        },
+        |link| {
+            let _ = sink.add(match link {
+                None => Msg::Online,
+                Some(text) => Msg::Problem { text },
+            });
+        },
+    )
+}
+
+/// PC-to-phone messages the app shows; phone-to-PC ones (our own) give None.
+fn to_msg(body: Body) -> Option<Msg> {
+    Some(match body {
                 Body::Status { children } => Msg::Status {
                     children: children
                         .into_iter()
@@ -158,15 +172,16 @@ pub fn listen(state_path: String, state_key: Vec<u8>, sink: StreamSink<Msg>) -> 
                 },
                 Body::Rules { children } => Msg::Rules { children: children.into_iter().map(Rules::from).collect() },
                 Body::Notice { text } => Msg::Notice { text },
-                _ => return true, // phone-to-PC messages: ignore
-            };
-            sink.add(msg).is_ok() // false once Dart has cancelled the stream
-        },
-        |link| {
-            let _ = sink.add(match link {
-                None => Msg::Online,
-                Some(text) => Msg::Problem { text },
-            });
-        },
-    )
+        _ => return None,
+    })
+}
+
+pub fn set_push(state_path: String, state_key: Vec<u8>, endpoint: Option<String>) -> anyhow::Result<()> {
+    client::send(Path::new(&state_path), Some(&key(&state_key)?), Body::SetPush { endpoint })
+}
+
+/// Decrypt a message that arrived by push while the app was closed.
+pub fn open_push(state_path: String, state_key: Vec<u8>, payload: Vec<u8>) -> anyhow::Result<Option<Msg>> {
+    let body = client::open_push(Path::new(&state_path), Some(&key(&state_key)?), &payload)?;
+    Ok(to_msg(body))
 }

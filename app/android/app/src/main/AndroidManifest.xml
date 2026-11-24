@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Reaching the relay (ntfy) is the app's whole job. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Requests from a child while the app is closed. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Hearth"
         android:name="${applicationName}"

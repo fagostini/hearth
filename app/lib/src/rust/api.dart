@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'api.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `key`
+// These functions are ignored because they are not marked as `pub`: `key`, `to_msg`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `from`, `from`
 
 bool isPaired({required String statePath, required List<int> stateKey}) =>
@@ -51,6 +51,13 @@ Future<void> answer({
 /// Stream of messages from the PC. Runs until the Dart side stops listening.
 Stream<Msg> listen({required String statePath, required List<int> stateKey}) =>
     RustLib.instance.api.crateApiListen(statePath: statePath, stateKey: stateKey);
+
+Future<void> setPush({required String statePath, required List<int> stateKey, String? endpoint}) =>
+    RustLib.instance.api.crateApiSetPush(statePath: statePath, stateKey: stateKey, endpoint: endpoint);
+
+/// Decrypt a message that arrived by push while the app was closed.
+Future<Msg?> openPush({required String statePath, required List<int> stateKey, required List<int> payload}) =>
+    RustLib.instance.api.crateApiOpenPush(statePath: statePath, stateKey: stateKey, payload: payload);
 
 class AppRule {
   final String app;

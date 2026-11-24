@@ -102,6 +102,19 @@ pub fn send(path: &Path, key: Option<&StateKey>, body: Body) -> Result<()> {
     Ok(())
 }
 
+/// Open one envelope that arrived by push (the app was woken while closed). Same checks
+/// as the live listener: only from the paired PC, addressed to us, newer than the last.
+pub fn open_push(path: &Path, key: Option<&StateKey>, payload: &[u8]) -> Result<Body> {
+    let text = std::str::from_utf8(payload).context("push payload isn't text")?;
+    let env: Envelope = serde_json::from_str(text).context("push payload isn't a Hearth message")?;
+    let _g = LOCK.lock().unwrap();
+    let (mut st, me) = load(path, key)?;
+    anyhow::ensure!(env.from == st.pc.public && env.to == B64.encode(me.public()), "not for this pairing");
+    let body = Channel::new(&me, &mut st.pc)?.open(text)?;
+    save(path, &st, key)?;
+    Ok(body)
+}
+
 /// Receive messages from the PC until `on_message` returns false. Reconnects with
 /// backoff and resumes from the last message id. `on_link` hears the connection
 /// state: `None` when connected, `Some(reason)` when not. Messages that fail to open

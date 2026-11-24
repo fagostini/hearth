@@ -144,6 +144,9 @@ pub enum Body {
     SetRules { rules: Rules },
     /// PC -> phone: something the parent should read, e.g. why a change was refused.
     Notice { text: String },
+    /// Phone -> PC: where to send wake-ups while the app is closed (a UnifiedPush
+    /// endpoint URL), or None to stop. The PC posts the same sealed envelopes there.
+    SetPush { endpoint: Option<String> },
 }
 
 /// What travels over the relay. Only `from` and `to` are readable (public keys).

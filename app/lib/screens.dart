@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'hub.dart';
 import 'main.dart';
+import 'push.dart';
 import 'model.dart';
 import 'src/rust/api.dart' as rust;
 
@@ -262,6 +263,21 @@ class TodayScreen extends StatelessWidget {
             child: Text(
               'Can\'t reach the PC right now. Retrying. ($p)',
               style: body(13, color: const Color(0xFFA33F14)),
+            ),
+          ),
+        ],
+        if (live && Platform.isAndroid && !Push.available) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(color: C.line),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              'To hear about requests while Hearth is closed, install the free ntfy app (F-Droid or Play Store), '
+              'then reopen Hearth.',
+              style: body(13, color: C.muted),
             ),
           ),
         ],

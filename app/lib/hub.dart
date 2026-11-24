@@ -70,6 +70,18 @@ class Hub extends ChangeNotifier {
     }
   }
 
+  /// A message that arrived some other way (push) goes through the same handling.
+  void deliver(rust.Msg m) => _on(m);
+
+  Future<rust.Msg?> openPush(List<int> content) =>
+      rust.openPush(statePath: statePath, stateKey: stateKey, payload: Uint8List.fromList(content));
+
+  /// Tell the PC where to send wake-ups (null = stop).
+  Future<void> setPush(String? endpoint) async {
+    if (!paired) return;
+    await rust.setPush(statePath: statePath, stateKey: stateKey, endpoint: endpoint);
+  }
+
   void _on(rust.Msg m) {
     switch (m) {
       case rust.Msg_Status(:final children):

@@ -8,10 +8,11 @@ plugins {
 
 android {
     namespace = "org.hearth.hearth"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37 // flutter_local_notifications needs 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true // flutter_local_notifications
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -61,6 +62,16 @@ kotlin {
     }
 }
 
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
 flutter {
     source = "../.."
+}
+
+// unifiedpush brings com.google.crypto.tink:tink, flutter_secure_storage brings
+// tink-android: same classes twice. Keep the Android edition.
+configurations.all {
+    exclude(group = "com.google.crypto.tink", module = "tink")
 }
