@@ -5,7 +5,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:unifiedpush/unifiedpush.dart';
 
 import 'hub.dart';
-import 'src/rust/api.dart' as rust;
 
 /// Wake-ups while the app is closed, through UnifiedPush (the ntfy app, or any other
 /// distributor). The PC posts the same sealed envelope it puts on the relay; we decrypt
@@ -22,17 +21,45 @@ class Push {
     if (!Platform.isAndroid || _ready) return;
     _ready = true;
     await _notes.initialize(
-      settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+      settings: const InitializationSettings(android: AndroidInitializationSettings('@drawable/ic_stat_hearth')),
     );
+    // Listen before UnifiedPush starts: a wake-up can deliver its message during startup.
+    hub.addListener(() {
+      _register(hub); // pairing done later -> register then
+      _announce(hub);
+    });
     await UnifiedPush.initialize(
       onNewEndpoint: (e, _) => hub.setPush(e.url),
       onUnregistered: (_) => hub.setPush(null),
       onMessage: (m, _) => _onMessage(hub, m.content),
     );
     available = await UnifiedPush.tryUseCurrentOrDefaultDistributor();
+    hub.touch(); // the Today hint depends on this
+    await _announce(hub); // anything that arrived before we were listening
     await _register(hub);
-    hub.addListener(() => _register(hub)); // pairing done later -> register then
   }
+
+  /// Installed distributors (Android package names) and the one in use.
+  static Future<List<String>> distributors() async => Platform.isAndroid ? await UnifiedPush.getDistributors() : [];
+  static Future<String?> current() async => Platform.isAndroid ? await UnifiedPush.getDistributor() : null;
+
+  /// Switch distributor: unregister from the old one, register with the new; the
+  /// new endpoint reaches the PC through onNewEndpoint.
+  static Future<void> use(Hub hub, String distributor) async {
+    await UnifiedPush.unregister();
+    await UnifiedPush.saveDistributor(distributor);
+    available = true;
+    _registered = false;
+    await _register(hub);
+  }
+
+  /// Friendly name for a distributor package.
+  static String label(String pkg) => switch (pkg) {
+    'io.heckel.ntfy' => 'ntfy',
+    _ when pkg.contains('murena') || pkg.startsWith('foundation.e') => 'Murena (/e/OS)',
+    _ when pkg.contains('microg') || pkg == 'com.google.android.gms' => 'microG',
+    _ => pkg,
+  };
 
   static bool _registered = false;
 
@@ -46,21 +73,28 @@ class Push {
   }
 
   static Future<void> _onMessage(Hub hub, List<int> content) async {
-    final rust.Msg? msg;
     try {
-      msg = await hub.openPush(content);
+      final msg = await hub.openPush(content);
+      if (msg != null) hub.deliver(msg);
     } catch (e) {
-      debugPrint('push message dropped: $e'); // replayed (the live listener had it) or not ours
-      return;
+      // Normal when the relay listener got the same message first.
+      debugPrint('push message dropped: $e');
     }
-    if (msg == null) return;
-    hub.deliver(msg);
+  }
+
+  /// Requests already announced, so each shows once whichever path brought it.
+  static final Set<String> _shown = {};
+
+  /// A new request while Hearth isn't on screen -> notification. Runs on every hub
+  /// change, so it doesn't matter whether the push or the live relay delivered it.
+  static Future<void> _announce(Hub hub) async {
     final inFront = WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
-    if (msg case rust.Msg_Request(:final id, :final user, :final minutes, :final reason) when !inFront) {
+    for (final r in hub.requests) {
+      if (!_shown.add(r.id) || inFront) continue;
       await _notes.show(
-        id: id.hashCode,
-        title: '${Hub.display(user)} wants $minutes more minutes',
-        body: reason.isEmpty ? 'Tap to answer.' : '“$reason”',
+        id: r.id.hashCode,
+        title: '${r.child.name} wants ${r.minutes} more minutes',
+        body: r.reason.isEmpty ? 'Tap to answer.' : '“${r.reason}”',
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             'requests',
@@ -68,6 +102,8 @@ class Push {
             channelDescription: 'A child asks for more screen time',
             importance: Importance.high,
             priority: Priority.high,
+            icon: 'ic_stat_hearth',
+            color: Color(0xFFE8622C),
           ),
         ),
       );

@@ -70,6 +70,9 @@ class Hub extends ChangeNotifier {
     }
   }
 
+  /// Redraw after something outside the hub changed (e.g. push became available).
+  void touch() => notifyListeners();
+
   /// A message that arrived some other way (push) goes through the same handling.
   void deliver(rust.Msg m) => _on(m);
 

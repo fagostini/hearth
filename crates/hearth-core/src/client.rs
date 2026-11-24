@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn state_file_encryption() {
-        let st = State { key: "k".into(), relay: "https://r".into(), topic: "t".into(), pc: Peer { public: "p".into(), name: "PC".into(), sent: 3, received: 4 } };
+        let st = State { key: "k".into(), relay: "https://r".into(), topic: "t".into(), pc: Peer { public: "p".into(), name: "PC".into(), sent: 3, received: 4, seen: 0 } };
         let key = [7u8; 32];
         let sealed = encode(&st, Some(&key)).unwrap();
         assert!(!String::from_utf8_lossy(&sealed).contains("https://r"));

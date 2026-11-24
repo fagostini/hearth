@@ -240,7 +240,7 @@ class TodayScreen extends StatelessWidget {
             shape: const StadiumBorder(),
             child: InkWell(
               customBorder: const StadiumBorder(),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PairScreen())),
+              onTap: () => _pcSheet(context),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 child: Row(
@@ -337,6 +337,55 @@ class TodayScreen extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The "Family PC" chip: pair again, and choose how wake-ups reach this phone.
+Future<void> _pcSheet(BuildContext context) async {
+  final h = hub;
+  final ds = await Push.distributors();
+  final cur = await Push.current();
+  if (!context.mounted) return;
+  await showModalBottomSheet<void>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Family PC', style: display(20, weight: 700)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.qr_code_scanner),
+            title: const Text('Pair again'),
+            onTap: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PairScreen()));
+            },
+          ),
+          if (ds.isNotEmpty && h != null) ...[
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text('Notifications while Hearth is closed, through:', style: body(13, color: C.muted)),
+            ),
+            for (final d in ds)
+              ListTile(
+                leading: Icon(d == cur ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+                title: Text(Push.label(d)),
+                subtitle: Text(d, style: body(12, color: C.muted)),
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  if (d != cur) await Push.use(h, d);
+                },
+              ),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
 }
 
 class _RequestCard extends StatelessWidget {

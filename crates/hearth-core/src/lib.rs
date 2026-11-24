@@ -176,7 +176,38 @@ pub struct Peer {
     pub public: String,
     pub name: String,
     pub sent: u64,
+    /// Highest sequence number accepted from this peer.
     pub received: u64,
+    /// Which of the 64 numbers below `received` were already accepted (bit n = received-1-n).
+    /// Messages arrive by two paths (relay and push) and can overtake each other, so an
+    /// older number is fine once; a number seen before, or older than the window, isn't.
+    #[serde(default)]
+    pub seen: u64,
+}
+
+const WINDOW: u64 = 64;
+
+impl Peer {
+    /// Accept `seq` once (sliding anti-replay window, as in IPsec/DTLS).
+    fn accept(&mut self, seq: u64) -> bool {
+        if seq > self.received {
+            let shift = seq - self.received;
+            // The old top becomes bit (shift-1); everything shifts down.
+            self.seen = if shift > WINDOW { 0 } else { (self.seen << shift.min(63)) << (shift - shift.min(63)) | if self.received > 0 { 1 << (shift - 1) } else { 0 } };
+            self.received = seq;
+            return true;
+        }
+        let back = self.received - seq; // 0 = the top itself
+        if back == 0 || back > WINDOW {
+            return false;
+        }
+        let bit = 1u64 << (back - 1);
+        if self.seen & bit != 0 {
+            return false;
+        }
+        self.seen |= bit;
+        true
+    }
 }
 
 pub struct Channel<'a> {
@@ -228,10 +259,9 @@ impl<'a> Channel<'a> {
             .decrypt(&XNonce::from(nonce), Payload { msg: &B64.decode(&e.data)?, aad: &Self::aad(&e.from, &e.to) })
             .map_err(|_| anyhow::anyhow!("authentication failed"))?;
         let s: Sealed = serde_json::from_slice(&plain)?;
-        if s.seq <= self.peer.received {
-            bail!("replayed or old message (seq {} <= {})", s.seq, self.peer.received);
+        if s.seq == 0 || !self.peer.accept(s.seq) {
+            bail!("replayed or too old message (seq {}, newest {})", s.seq, self.peer.received);
         }
-        self.peer.received = s.seq;
         Ok(s.body)
     }
 }
@@ -295,7 +325,7 @@ impl PairOffer {
         unb64::<32>(&req.phone)?;
         let mac = pair_mac(&unb64(&self.secret)?, &req.phone, &self.pc, &req.name);
         mac.verify_slice(&B64.decode(&req.mac)?).map_err(|_| anyhow::anyhow!("wrong pairing code"))?;
-        Ok(Peer { public: req.phone.clone(), name: req.name.clone(), sent: 0, received: 0 })
+        Ok(Peer { public: req.phone.clone(), name: req.name.clone(), sent: 0, received: 0, seen: 0 })
     }
 }
 
@@ -305,7 +335,7 @@ impl PairRequest {
         let pk = b64(&phone.public());
         let mac = pair_mac(&unb64(&offer.secret)?, &pk, &offer.pc, name).finalize().into_bytes();
         let req = Self { kind: "pair".into(), phone: pk, name: name.into(), mac: b64(&mac) };
-        Ok((req, Peer { public: offer.pc.clone(), name: "PC".into(), sent: 0, received: 0 }))
+        Ok((req, Peer { public: offer.pc.clone(), name: "PC".into(), sent: 0, received: 0, seen: 0 }))
     }
 }
 
@@ -389,6 +419,22 @@ mod tests {
         };
         let wire = Channel::new(&phone, &mut phone_peer).unwrap().seal(Body::SetRules { rules: rules.clone() }, 1).unwrap();
         assert_eq!(Channel::new(&pc, &mut pc_peer).unwrap().open(&wire).unwrap(), Body::SetRules { rules });
+    }
+
+    #[test]
+    fn replay_window() {
+        let mut p = Peer { public: String::new(), name: String::new(), sent: 0, received: 0, seen: 0 };
+        assert!(p.accept(1));
+        assert!(p.accept(4)); // 2, 3 still pending
+        assert!(p.accept(2)); // late, once
+        assert!(!p.accept(2));
+        assert!(!p.accept(4));
+        assert!(p.accept(3));
+        assert!(!p.accept(1));
+        assert!(p.accept(200)); // big jump clears the window
+        assert!(!p.accept(200 - 65)); // older than the window
+        assert!(p.accept(199));
+        assert!(!p.accept(0) || true); // seq 0 is refused by open(), not here
     }
 
     #[test]

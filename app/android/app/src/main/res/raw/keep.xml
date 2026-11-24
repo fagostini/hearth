@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Named only from Dart (push.dart), so the release resource shrinker can't see it. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/ic_stat_hearth" />
