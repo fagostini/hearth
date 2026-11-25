@@ -9,6 +9,7 @@ license=('GPL-3.0-only')
 depends=('gcc-libs' 'glibc' 'nftables' 'sudo' 'systemd')
 makedepends=('cargo' 'git')
 install=hearth.install
+options=('!lto')  # ring's C code fails to link with makepkg's LTO
 source=("git+https://github.com/fagostini/hearth.git#tag=v$pkgver")
 sha256sums=('SKIP')
 
