@@ -113,25 +113,19 @@ class Hub extends ChangeNotifier {
   Future<List<rust.Msg>> poll() => rust.poll(statePath: statePath, stateKey: stateKey);
 
   /// Pull-to-refresh: ask the PC for everything and wait (up to 10 s) for its status.
-  /// Also restarts the relay listener in case it stalled.
-  Future<void> refresh() async {
-    if (!paired) return;
-    final got = Completer<void>();
+  /// Also restarts the relay listener in case it stalled. False if the PC didn't answer.
+  Future<bool> refresh() async {
+    if (!paired) return false;
+    final got = Completer<bool>();
     void onChange() {
-      if (!got.isCompleted && live && _statusAt.isAfter(_asked)) got.complete();
+      if (!got.isCompleted && live && _statusAt.isAfter(_asked)) got.complete(true);
     }
 
     _asked = DateTime.now();
     addListener(onChange);
     try {
       start();
-      await got.future.timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          problem = 'No answer from the PC. It may be off or asleep.';
-          notifyListeners();
-        },
-      );
+      return await got.future.timeout(const Duration(seconds: 10), onTimeout: () => false);
     } finally {
       removeListener(onChange);
     }

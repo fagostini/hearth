@@ -342,7 +342,15 @@ class TodayScreen extends StatelessWidget {
       ],
     );
     if (h == null || !h.paired) return list;
-    return RefreshIndicator(color: C.action, onRefresh: h.refresh, child: list);
+    return RefreshIndicator(
+      color: C.action,
+      onRefresh: () async {
+        if (await h.refresh() || !context.mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('No answer from the PC. It may be off or asleep.')));
+      },
+      child: list,
+    );
   }
 }
 
