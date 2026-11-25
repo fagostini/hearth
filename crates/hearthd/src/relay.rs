@@ -87,30 +87,47 @@ impl Relay {
 
     /// Send a message to every paired phone.
     pub fn broadcast(&mut self, body: Body) {
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
         for i in 0..self.peers.len() {
-            let sealed = Channel::new(&self.identity, &mut self.peers[i]).and_then(|mut c| c.seal(body.clone(), now));
-            match sealed {
-                Ok(env) => {
-                    // Requests also wake a closed app: the same sealed envelope goes to
-                    // the phone's push endpoint. Nothing readable leaves the PC.
-                    if matches!(body, Body::ExtensionRequest { .. }) {
-                        if let Some(ep) = self.push.get(&self.peers[i].public) {
-                            post(ep.clone(), env.clone());
-                        }
-                    }
-                    publish(&self.url, &self.topic, env)
-                }
-                Err(e) => warn!(%e, "seal failed"),
-            }
+            self.seal_and_send(i, &body);
         }
+        self.save_or_warn();
+    }
+
+    /// Answer one phone only (replies to its questions). Every post counts against the
+    /// relay's per-IP rate limit, which the PC and phones often share behind one router.
+    pub fn send(&mut self, to: &str, body: Body) {
+        if let Some(i) = self.peers.iter().position(|p| p.public == to) {
+            self.seal_and_send(i, &body);
+            self.save_or_warn();
+        }
+    }
+
+    fn seal_and_send(&mut self, i: usize, body: &Body) {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+        match Channel::new(&self.identity, &mut self.peers[i]).and_then(|mut c| c.seal(body.clone(), now)) {
+            Ok(env) => {
+                // Requests also wake a closed app: the same sealed envelope goes to
+                // the phone's push endpoint. Nothing readable leaves the PC.
+                if matches!(body, Body::ExtensionRequest { .. }) {
+                    if let Some(ep) = self.push.get(&self.peers[i].public) {
+                        post(ep.clone(), env.clone());
+                    }
+                }
+                publish(&self.url, &self.topic, env)
+            }
+            Err(e) => warn!(%e, "seal failed"),
+        }
+    }
+
+    fn save_or_warn(&self) {
         if let Err(e) = self.save() {
             warn!(%e, "relay state not saved");
         }
     }
 
-    /// Handle one message from the relay. Returns decrypted bodies from paired phones.
-    pub fn receive(&mut self, text: &str) -> Option<Body> {
+    /// Handle one message from the relay. Returns the sender's public key and the
+    /// decrypted body, for messages from paired phones.
+    pub fn receive(&mut self, text: &str) -> Option<(String, Body)> {
         if let Ok(req) = serde_json::from_str::<PairRequest>(text) {
             let Some((offer, at)) = &self.offer else { return None };
             if at.elapsed() > OFFER_TTL {
@@ -120,11 +137,12 @@ impl Relay {
             match offer.verify(&req) {
                 Ok(peer) => {
                     info!(phone = peer.name, "phone paired");
-                    self.peers.retain(|p| p.public != peer.public);
+                    let from = peer.public.clone();
+                self.peers.retain(|p| p.public != peer.public);
                     self.peers.push(peer);
                     self.offer = None; // one-time
                     let _ = self.save();
-                    return Some(Body::GetStatus); // greet the new phone with a status
+                    return Some((from, Body::GetStatus)); // greet the new phone with a status
                 }
                 Err(e) => warn!(%e, "pairing request rejected"),
             }
@@ -152,7 +170,7 @@ impl Relay {
                 let _ = self.save();
                 None
             }
-            Ok(b) => Some(b),
+            Ok(b) => Some((from, b)),
             Err(e) => {
                 warn!(%e, "message from phone rejected");
                 None

@@ -84,10 +84,15 @@ pub fn pair(path: &Path, key: Option<&StateKey>, qr: &str, phone_name: &str) -> 
     let me = Identity::generate();
     let (req, pc) = PairRequest::new(&me, &offer, phone_name)?;
     let _g = LOCK.lock().unwrap();
-    ureq::post(&format!("{}/{}", offer.relay, offer.topic))
-        .send(serde_json::to_string(&req)?)
+    post(&format!("{}/{}", offer.relay, offer.topic), serde_json::to_string(&req)?)
         .context("can't reach the relay")?;
     save(path, &State { key: B64.encode(me.to_bytes()), relay: offer.relay, topic: offer.topic, pc }, key)
+}
+
+/// Post to the relay with a deadline: an unreachable relay must fail, not hang while
+/// holding LOCK (which would block every later call in the app).
+fn post(url: &str, body: String) -> Result<(), ureq::Error> {
+    ureq::post(url).config().timeout_global(Some(Duration::from_secs(15))).build().send(body).map(|_| ())
 }
 
 /// Encrypt and send one message to the PC.
@@ -98,7 +103,7 @@ pub fn send(path: &Path, key: Option<&StateKey>, body: Body) -> Result<()> {
     save(path, &st, key)?; // counter first: a lost send is fine, a reused counter is not
     let url = format!("{}/{}", st.relay, st.topic);
     drop(_g);
-    ureq::post(&url).send(env).context("can't reach the relay")?;
+    post(&url, env).context("can't reach the relay")?;
     Ok(())
 }
 
@@ -131,7 +136,7 @@ pub fn listen(path: &Path, key: Option<&StateKey>, mut on_message: impl FnMut(Bo
             Some(id) => format!("{relay}/{topic}/json?since={id}"),
             None => format!("{relay}/{topic}/json"),
         };
-        match ureq::get(&url).call() {
+        match ureq::get(&url).config().timeout_connect(Some(Duration::from_secs(10))).build().call() {
             Ok(resp) => {
                 backoff = 1;
                 on_link(None);

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener, AppLifecycleState, WidgetsBinding;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -20,23 +22,49 @@ class Hub extends ChangeNotifier {
 
   /// 32 random bytes kept in the platform keystore (Android Keystore, iOS Keychain,
   /// libsecret on Linux), so a copy of the app's files alone can't impersonate the phone.
-  final Uint8List stateKey;
+  /// Empty until the first pairing creates it (see [pair]).
+  Uint8List stateKey;
+
+  static const _store = FlutterSecureStorage(aOptions: AndroidOptions(resetOnError: false));
 
   static Future<Hub> open() async {
     final dir = await getApplicationSupportDirectory();
-    const store = FlutterSecureStorage();
-    var key = await store.read(key: 'pairing_key');
-    if (key == null) {
-      final r = Random.secure();
-      key = base64Encode(List.generate(32, (_) => r.nextInt(256)));
-      await store.write(key: 'pairing_key', value: key);
+    // resetOnError (default true) would silently wipe the key on one failed keystore
+    // read, unpairing the phone. Throw instead; retry once.
+    const store = _store;
+    String? key;
+    try {
+      key = await store.read(key: 'pairing_key');
+    } catch (e) {
+      debugPrint('hearth: key read failed ($e), retrying');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      key = await store.read(key: 'pairing_key');
     }
-    final hub = Hub('${dir.path}/pairing.bin', base64Decode(key));
-    if (hub.paired) hub.start();
+    if (key == null) {
+      // No key: any pairing file is unreadable, so start clean rather than half-paired.
+      final old = File('${dir.path}/pairing.bin');
+      if (old.existsSync()) {
+        debugPrint('hearth: pairing key missing, removing unreadable pairing');
+        old.deleteSync();
+      }
+    }
+    // No key is made here: a push can start a hidden engine alongside the app, and two
+    // engines each making one would race (the pairing used one, storage kept the other).
+    final hub = Hub('${dir.path}/pairing.bin', key == null ? Uint8List(0) : base64Decode(key));
+    // Listen to the relay only while on screen. A push to a closed app starts a hidden
+    // engine in the same process; if it listened too, it would take each message first
+    // and the visible app would drop it as already seen (they share the replay record).
+    // Hidden engines handle the push itself (Push._onMessage) and nothing else.
+    void maybeStart(AppLifecycleState? s) {
+      if (s == AppLifecycleState.resumed && hub.paired && hub._sub == null) hub.start();
+    }
+
+    maybeStart(WidgetsBinding.instance.lifecycleState);
+    hub._lifecycle = AppLifecycleListener(onStateChange: maybeStart);
     return hub;
   }
 
-  bool get paired => rust.isPaired(statePath: statePath, stateKey: stateKey);
+  bool get paired => stateKey.isNotEmpty && rust.isPaired(statePath: statePath, stateKey: stateKey);
 
   List<Child>? children; // null = no status yet
   final Map<String, rust.Rules> rules = {}; // by Linux username
@@ -47,6 +75,7 @@ class Hub extends ChangeNotifier {
   final List<TimeRequest> requests = [];
   String? problem;
   StreamSubscription<rust.Msg>? _sub;
+  AppLifecycleListener? _lifecycle;
 
   bool get live => children != null;
 
@@ -127,6 +156,13 @@ class Hub extends ChangeNotifier {
 
   /// ponytail: fixed name; a "name this phone" field when there are settings.
   Future<void> pair(String code) async {
+    if (stateKey.isEmpty) {
+      // Only the visible app pairs, so this is the one place a key is made.
+      final r = Random.secure();
+      final k = Uint8List.fromList(List.generate(32, (_) => r.nextInt(256)));
+      await _store.write(key: 'pairing_key', value: base64Encode(k));
+      stateKey = k;
+    }
     await rust.pair(statePath: statePath, stateKey: stateKey, qr: code, phoneName: "Parent's phone");
     start();
     notifyListeners();
@@ -157,6 +193,7 @@ class Hub extends ChangeNotifier {
   @override
   void dispose() {
     _sub?.cancel();
+    _lifecycle?.dispose();
     super.dispose();
   }
 

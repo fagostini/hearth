@@ -257,15 +257,16 @@ async fn main() -> anyhow::Result<()> {
             }
             Some(text) = relay_rx.recv() => {
                 let Some(r) = relay.as_mut() else { continue };
-                match r.receive(&text) {
-                    Some(hearth_core::Body::GetRules) => {
-                        r.broadcast(hearth_core::Body::Rules { children: children.iter().map(|c| c.rules.clone()).collect() });
+                let Some((from, body)) = r.receive(&text) else { continue };
+                match body {
+                    hearth_core::Body::GetRules => {
+                    r.send(&from, hearth_core::Body::Rules { children: children.iter().map(|c| c.rules.clone()).collect() });
                     }
-                    Some(hearth_core::Body::GetHistory) => match history_body(&children, &store) {
-                        Ok(h) => r.broadcast(h),
+                    hearth_core::Body::GetHistory => match history_body(&children, &store) {
+                    Ok(h) => r.send(&from, h),
                         Err(e) => warn!(%e, "history query failed"),
                     },
-                    Some(hearth_core::Body::SetRules { rules }) => {
+                    hearth_core::Body::SetRules { rules } => {
                         let res = match children.iter_mut().find(|c| c.user == rules.user) {
                             None => Err(anyhow::anyhow!("no child called {}", rules.user)),
                             Some(c) => c.set_rules(rules.clone()).and_then(|()| store.save_rules(&rules)),
@@ -277,21 +278,21 @@ async fn main() -> anyhow::Result<()> {
                             }
                             Err(e) => {
                                 warn!(user = rules.user, %e, "rules from the phone refused");
-                                r.broadcast(hearth_core::Body::Notice { text: format!("Rules not changed: {e}") });
+                                r.send(&from, hearth_core::Body::Notice { text: format!("Rules not changed: {e}") });
                             }
                         }
                         // Always answer with what is in force now, so the app shows the truth.
                         r.broadcast(hearth_core::Body::Rules { children: children.iter().map(|c| c.rules.clone()).collect() });
                     }
-                    Some(hearth_core::Body::GetStatus) => {
-                        r.broadcast(status_body(&children, &status));
+                    hearth_core::Body::GetStatus => {
+                    r.send(&from, status_body(&children, &status));
                         for c in &children {
                             if let Some((id, minutes, reason)) = &c.pending {
-                                r.broadcast(hearth_core::Body::ExtensionRequest { id: id.clone(), user: c.user.clone(), minutes: *minutes, reason: reason.clone() });
+                                r.send(&from, hearth_core::Body::ExtensionRequest { id: id.clone(), user: c.user.clone(), minutes: *minutes, reason: reason.clone() });
                             }
                         }
                     }
-                    Some(hearth_core::Body::ExtensionReply { id, approve, minutes }) => {
+                    hearth_core::Body::ExtensionReply { id, approve, minutes } => {
                         if let Some(c) = children.iter_mut().find(|c| c.pending.as_ref().is_some_and(|p| p.0 == id)) {
                             c.pending = None;
                             let text = if approve {
