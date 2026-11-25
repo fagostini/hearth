@@ -1,7 +1,11 @@
 [package]
 name = "hearth-agent"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Hearth parental controls: per-user agent (notifications, asking for more time)"
 
 [dependencies]
 futures-util = "0.3.34"
