@@ -62,6 +62,7 @@ class HearthApp extends StatelessWidget {
     return MaterialApp(
       title: 'Hearth',
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigator,
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: C.ground,

@@ -1,10 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show MaterialPageRoute;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:unifiedpush/unifiedpush.dart';
 
 import 'hub.dart';
+import 'screens.dart' show RequestScreen;
+
+/// Lets a notification tap open a screen from outside the widget tree.
+final navigator = GlobalKey<NavigatorState>();
 
 /// Wake-ups while the app is closed, through UnifiedPush (the ntfy app, or any other
 /// distributor). The PC posts the same sealed envelope it puts on the relay; we decrypt
@@ -22,7 +27,11 @@ class Push {
     _ready = true;
     await _notes.initialize(
       settings: const InitializationSettings(android: AndroidInitializationSettings('@drawable/ic_stat_hearth')),
+      onDidReceiveNotificationResponse: (r) => _open(hub, r.payload),
     );
+    // Tapped while Hearth wasn't running: the tap started the app.
+    final launch = await _notes.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp ?? false) _open(hub, launch!.notificationResponse?.payload);
     // Listen before UnifiedPush starts: a wake-up can deliver its message during startup.
     hub.addListener(() {
       _register(hub); // pairing done later -> register then
@@ -82,6 +91,30 @@ class Push {
     }
   }
 
+  /// Open the answer screen for request `id`. After a cold start the request may not
+  /// be here yet (the PC resends unanswered ones when asked for a status), so wait for
+  /// it a little.
+  static Future<void> _open(Hub hub, String? id) async {
+    debugPrint('hearth: notification tapped ($id)');
+    if (id == null) return;
+    for (var i = 0; i < 40; i++) {
+      final req = hub.requests.where((r) => r.id == id).firstOrNull;
+      final nav = navigator.currentState;
+      if (req != null && nav != null) {
+        nav.push(MaterialPageRoute(builder: (_) => RequestScreen(req: req)));
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    debugPrint('hearth: request $id not found after 10 s');
+    // Answered elsewhere or gone: Today shows what's left.
+  }
+
+  /// Take an answered request's notification away.
+  static Future<void> dismiss(String id) async {
+    if (Platform.isAndroid && _ready) await _notes.cancel(id: id.hashCode);
+  }
+
   /// Requests already announced, so each shows once whichever path brought it.
   static final Set<String> _shown = {};
 
@@ -93,6 +126,7 @@ class Push {
       if (!_shown.add(r.id) || inFront) continue;
       await _notes.show(
         id: r.id.hashCode,
+        payload: r.id,
         title: '${r.child.name} wants ${r.minutes} more minutes',
         body: r.reason.isEmpty ? 'Tap to answer.' : '“${r.reason}”',
         notificationDetails: const NotificationDetails(

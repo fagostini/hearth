@@ -50,7 +50,11 @@ class Hub extends ChangeNotifier {
 
   bool get live => children != null;
 
+  DateTime _started = DateTime.now();
+
   void start() {
+    _started = DateTime.now();
+    debugPrint('hearth: listening');
     _sub?.cancel();
     _sub = rust
         .listen(statePath: statePath, stateKey: stateKey)
@@ -88,6 +92,9 @@ class Hub extends ChangeNotifier {
   void _on(rust.Msg m) {
     switch (m) {
       case rust.Msg_Status(:final children):
+        if (this.children == null) {
+          debugPrint('hearth: first status after ${DateTime.now().difference(_started).inMilliseconds} ms');
+        }
         this.children = [for (final (i, k) in children.indexed) _child(i, k)];
         problem = null;
       case rust.Msg_Request(:final id, :final user, :final minutes, :final reason):

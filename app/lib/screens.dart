@@ -227,13 +227,16 @@ class TodayScreen extends StatelessWidget {
 
   Widget _build(BuildContext context, Hub? h) {
     final live = h?.live ?? false;
-    final kids = live ? h!.children! : Demo.children;
-    final req = live ? h!.requests.firstOrNull : Demo.request;
+    // Demo data only when no PC is paired; a paired app waiting for its first update
+    // shows nothing rather than sample children someone could mistake for real.
+    final demo = h == null || !h.paired;
+    final kids = live ? h!.children! : (demo ? Demo.children : <Child>[]);
+    final req = h != null && h.paired ? h.requests.firstOrNull : Demo.request;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
         Header(
-          over: live ? _today() : 'Sunday 22 November · 17:46',
+          over: demo ? 'Sunday 22 November · 17:46' : _today(),
           title: 'Today',
           trailing: Material(
             color: C.surface,
@@ -328,7 +331,7 @@ class TodayScreen extends StatelessWidget {
               ],
             ),
           ),
-        if (!live) ...[
+        if (demo) ...[
           const SizedBox(height: 14),
           Center(
             child: Pill('Demo data', bg: C.chip, fg: C.soft),
@@ -467,6 +470,7 @@ class _RequestScreenState extends State<RequestScreen> {
     setState(() => sending = true);
     try {
       await h.answer(widget.req, approve: approve, minutes: minutes);
+      await Push.dismiss(widget.req.id);
       if (mounted) setState(() => approved = approve);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Not sent: $e. Try again.')));
