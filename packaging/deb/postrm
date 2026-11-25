@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+#DEBHELPER#
+# Purge: the config (written by `hearthd setup`) and the usage history and pairings.
+if [ "$1" = purge ]; then
+    rm -rf /etc/hearth /var/lib/hearth
+fi

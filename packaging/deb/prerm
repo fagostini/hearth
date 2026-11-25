@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+#DEBHELPER#
+# Removal (not upgrade): drop the children's DNS redirect, or it would point at a
+# resolver that's no longer there and they'd have no DNS at all.
+if [ "$1" = remove ]; then
+    nft delete table inet hearth 2>/dev/null || true
+fi

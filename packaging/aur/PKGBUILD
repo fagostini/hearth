@@ -1,0 +1,41 @@
+# Maintainer: Federico Agostini <fedagoplay@proton.me>
+pkgname=hearth
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Parental controls for Linux family PCs, with a parent app for your phone"
+arch=('x86_64' 'aarch64')
+url="https://github.com/fagostini/hearth"
+license=('GPL-3.0-only')
+depends=('gcc-libs' 'glibc' 'nftables' 'sudo' 'systemd')
+makedepends=('cargo' 'git')
+install=hearth.install
+source=("git+https://github.com/fagostini/hearth.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$pkgname"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo build --frozen --release -p hearthd -p hearth-agent
+}
+
+check() {
+  cd "$pkgname"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR=target
+  cargo test --frozen -p hearthd -p hearth-core
+}
+
+package() {
+  cd "$pkgname"
+  install -Dm755 target/release/hearthd target/release/hearth-agent -t "$pkgdir/usr/bin/"
+  install -Dm644 data/systemd/hearthd.service data/systemd/hearth-dns.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 data/dbus/org.hearth.Daemon1.conf -t "$pkgdir/usr/share/dbus-1/system.d/"
+  install -Dm644 data/autostart/org.hearth.Agent.desktop -t "$pkgdir/etc/xdg/autostart/"
+  install -Dm644 data/hearthd.toml.example README.md -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+}

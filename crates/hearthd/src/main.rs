@@ -6,6 +6,7 @@ mod config;
 mod dns;
 mod relay;
 mod session;
+mod setup;
 mod store;
 
 use accounting::{action, capped, counts, outside, remaining, Action};
@@ -115,23 +116,31 @@ fn has_sudo(user: &str) -> bool {
         .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("may run the following"))
 }
 
+/// One-time pairing code from the running daemon, shown as a QR code (and as text).
+async fn show_pairing_code(text: bool) -> anyhow::Result<()> {
+    let conn = zbus::Connection::system().await?;
+    let reply = conn
+        .call_method(Some("org.hearth.Daemon1"), "/org/hearth/Daemon1", Some("org.hearth.Daemon1"), "StartPairing", &())
+        .await?;
+    let payload: String = reply.body().deserialize()?;
+    let qr = qrcode::QrCode::new(payload.as_bytes())?;
+    println!("{}", qr.render::<qrcode::render::unicode::Dense1x2>().quiet_zone(true).build());
+    println!("Scan with the Hearth app on your phone (Pair, on the first screen). The code works once, for 10 minutes.");
+    println!("No camera? Run: sudo hearthd pair --text, and type the code in the app.");
+    if text {
+        println!("{payload}");
+    }
+    Ok(())
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().without_time().init(); // journald adds timestamps
-    if env::args().nth(1).as_deref() == Some("pair") {
+    match env::args().nth(1).as_deref() {
         // `sudo hearthd pair`: ask the running daemon for a one-time code, show it as QR.
-        let conn = zbus::Connection::system().await?;
-        let reply = conn
-            .call_method(Some("org.hearth.Daemon1"), "/org/hearth/Daemon1", Some("org.hearth.Daemon1"), "StartPairing", &())
-            .await?;
-        let payload: String = reply.body().deserialize()?;
-        let qr = qrcode::QrCode::new(payload.as_bytes())?;
-        println!("{}", qr.render::<qrcode::render::unicode::Dense1x2>().quiet_zone(true).build());
-        println!("Scan with the Hearth app on your phone. The code works once, for 10 minutes.");
-        if env::args().any(|a| a == "--text") {
-            println!("{payload}");
-        }
-        return Ok(());
+        Some("pair") => return show_pairing_code(env::args().any(|a| a == "--text")).await,
+        Some("setup") => return setup::run().await,
+        _ => {}
     }
     let config_path = env::var("HEARTH_CONFIG").unwrap_or("/etc/hearth/hearthd.toml".into());
     let db_path = PathBuf::from(env::var("HEARTH_DB").unwrap_or("/var/lib/hearth/hearth.db".into()));

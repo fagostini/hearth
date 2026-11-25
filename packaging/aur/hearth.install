@@ -1,0 +1,13 @@
+post_install() {
+  echo "Hearth is installed. Set it up with:  sudo hearthd setup"
+}
+
+post_upgrade() {
+  systemctl is-active --quiet hearthd && systemctl restart hearth-dns hearthd || true
+}
+
+pre_remove() {
+  systemctl disable --now hearthd hearth-dns 2>/dev/null || true
+  # Drop the children's DNS redirect, or they'd have no DNS at all.
+  nft delete table inet hearth 2>/dev/null || true
+}

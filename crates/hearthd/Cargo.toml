@@ -25,3 +25,45 @@ tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 ureq = "3.5.2"
 zbus = { version = "6.5.0", default-features = false, features = ["tokio", "proxy", "service"] }
+
+# One "hearth" package for both programs: `cargo build --release --workspace` first.
+[package.metadata.deb]
+name = "hearth"
+section = "admin"
+depends = "$auto, nftables, sudo"
+extended-description = """\
+Screen time limits, allowed hours, per-app limits and web filtering for children's \
+accounts on a family PC, with a parent app for the phone (time requests, rules, \
+history). Run `sudo hearthd setup` after installing."""
+assets = [
+    ["target/release/hearthd", "usr/bin/", "755"],
+    ["target/release/hearth-agent", "usr/bin/", "755"],
+    ["../../data/dbus/org.hearth.Daemon1.conf", "usr/share/dbus-1/system.d/", "644"],
+    ["../../data/autostart/org.hearth.Agent.desktop", "etc/xdg/autostart/", "644"],
+    ["../../data/hearthd.toml.example", "usr/share/doc/hearth/", "644"],
+    ["../../README.md", "usr/share/doc/hearth/", "644"],
+]
+maintainer-scripts = "../../packaging/deb/"
+# Not started on install: there's nothing to enforce until `hearthd setup` writes the config.
+systemd-units = [
+    { unit-name = "hearthd", unit-scripts = "../../data/systemd", enable = false, start = false },
+    { unit-name = "hearth-dns", unit-scripts = "../../data/systemd", enable = false, start = false },
+]
+
+[package.metadata.generate-rpm]
+name = "hearth"
+summary = "Parental controls for Linux family PCs"
+requires = { nftables = "*", sudo = "*" }
+post_install_script = "packaging/rpm/post_install.sh"
+pre_uninstall_script = "packaging/rpm/pre_uninstall.sh"
+assets = [
+    { source = "target/release/hearthd", dest = "/usr/bin/hearthd", mode = "755" },
+    { source = "target/release/hearth-agent", dest = "/usr/bin/hearth-agent", mode = "755" },
+    { source = "data/systemd/hearthd.service", dest = "/usr/lib/systemd/system/hearthd.service", mode = "644" },
+    { source = "data/systemd/hearth-dns.service", dest = "/usr/lib/systemd/system/hearth-dns.service", mode = "644" },
+    { source = "data/dbus/org.hearth.Daemon1.conf", dest = "/usr/share/dbus-1/system.d/org.hearth.Daemon1.conf", mode = "644" },
+    { source = "data/autostart/org.hearth.Agent.desktop", dest = "/etc/xdg/autostart/org.hearth.Agent.desktop", mode = "644", config = true },
+    { source = "data/hearthd.toml.example", dest = "/usr/share/doc/hearth/hearthd.toml.example", mode = "644", doc = true },
+    { source = "README.md", dest = "/usr/share/doc/hearth/README.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/licenses/hearth/LICENSE", mode = "644", doc = true },
+]
