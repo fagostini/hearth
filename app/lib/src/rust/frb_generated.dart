@@ -63,7 +63,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1517970423;
+  int get rustContentHash => -2138458167;
 
   static const kDefaultExternalLibraryLoaderConfig = ExternalLibraryLoaderConfig(
     stem: 'hearth_bridge',
@@ -94,6 +94,8 @@ abstract class RustLibApi extends BaseApi {
     required String qr,
     required String phoneName,
   });
+
+  Future<List<Msg>> crateApiPoll({required String statePath, required List<int> stateKey});
 
   Future<void> crateApiRequestHistory({required String statePath, required List<int> stateKey});
 
@@ -242,7 +244,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "pair", argNames: ["statePath", "stateKey", "qr", "phoneName"]);
 
   @override
-  Future<void> crateApiRequestHistory({required String statePath, required List<int> stateKey}) {
+  Future<List<Msg>> crateApiPoll({required String statePath, required List<int> stateKey}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -250,6 +252,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(statePath, serializer);
           sse_encode_list_prim_u_8_loose(stateKey, serializer);
           pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6, port: port_);
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_list_msg, decodeErrorData: sse_decode_AnyhowException),
+        constMeta: kCrateApiPollConstMeta,
+        argValues: [statePath, stateKey],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPollConstMeta =>
+      const TaskConstMeta(debugName: "poll", argNames: ["statePath", "stateKey"]);
+
+  @override
+  Future<void> crateApiRequestHistory({required String statePath, required List<int> stateKey}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(statePath, serializer);
+          sse_encode_list_prim_u_8_loose(stateKey, serializer);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
         constMeta: kCrateApiRequestHistoryConstMeta,
@@ -270,7 +293,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(statePath, serializer);
           sse_encode_list_prim_u_8_loose(stateKey, serializer);
-          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7, port: port_);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
         constMeta: kCrateApiRequestRulesConstMeta,
@@ -291,7 +314,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(statePath, serializer);
           sse_encode_list_prim_u_8_loose(stateKey, serializer);
-          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8, port: port_);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
         constMeta: kCrateApiRequestStatusConstMeta,
@@ -313,7 +336,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(statePath, serializer);
           sse_encode_list_prim_u_8_loose(stateKey, serializer);
           sse_encode_opt_String(endpoint, serializer);
-          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9, port: port_);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
         constMeta: kCrateApiSetPushConstMeta,
@@ -335,7 +358,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(statePath, serializer);
           sse_encode_list_prim_u_8_loose(stateKey, serializer);
           sse_encode_box_autoadd_rules(rules, serializer);
-          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10, port: port_);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_unit, decodeErrorData: sse_decode_AnyhowException),
         constMeta: kCrateApiSetRulesConstMeta,
@@ -484,6 +507,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<Kid> dco_decode_list_kid(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_kid).toList();
+  }
+
+  @protected
+  List<Msg> dco_decode_list_msg(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_msg).toList();
   }
 
   @protected
@@ -755,6 +784,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <Kid>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_kid(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<Msg> sse_decode_list_msg(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Msg>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_msg(deserializer));
     }
     return ans_;
   }
@@ -1048,6 +1089,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_kid(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_msg(List<Msg> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_msg(item, serializer);
     }
   }
 

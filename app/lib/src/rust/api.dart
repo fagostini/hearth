@@ -59,6 +59,10 @@ Future<void> setPush({required String statePath, required List<int> stateKey, St
 Future<Msg?> openPush({required String statePath, required List<int> stateKey, required List<int> payload}) =>
     RustLib.instance.api.crateApiOpenPush(statePath: statePath, stateKey: stateKey, payload: payload);
 
+/// What the PC sent since the app last heard from the relay (hourly background check).
+Future<List<Msg>> poll({required String statePath, required List<int> stateKey}) =>
+    RustLib.instance.api.crateApiPoll(statePath: statePath, stateKey: stateKey);
+
 class AppRule {
   final String app;
 

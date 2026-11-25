@@ -109,6 +109,37 @@ class Hub extends ChangeNotifier {
   /// A message that arrived some other way (push) goes through the same handling.
   void deliver(rust.Msg m) => _on(m);
 
+  /// Messages the PC sent since the app last heard from the relay.
+  Future<List<rust.Msg>> poll() => rust.poll(statePath: statePath, stateKey: stateKey);
+
+  /// Pull-to-refresh: ask the PC for everything and wait (up to 10 s) for its status.
+  /// Also restarts the relay listener in case it stalled.
+  Future<void> refresh() async {
+    if (!paired) return;
+    final got = Completer<void>();
+    void onChange() {
+      if (!got.isCompleted && live && _statusAt.isAfter(_asked)) got.complete();
+    }
+
+    _asked = DateTime.now();
+    addListener(onChange);
+    try {
+      start();
+      await got.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          problem = 'No answer from the PC. It may be off or asleep.';
+          notifyListeners();
+        },
+      );
+    } finally {
+      removeListener(onChange);
+    }
+  }
+
+  DateTime _asked = DateTime.now();
+  DateTime _statusAt = DateTime.fromMillisecondsSinceEpoch(0);
+
   Future<rust.Msg?> openPush(List<int> content) =>
       rust.openPush(statePath: statePath, stateKey: stateKey, payload: Uint8List.fromList(content));
 
@@ -125,6 +156,7 @@ class Hub extends ChangeNotifier {
           debugPrint('hearth: first status after ${DateTime.now().difference(_started).inMilliseconds} ms');
         }
         this.children = [for (final (i, k) in children.indexed) _child(i, k)];
+        _statusAt = DateTime.now();
         problem = null;
       case rust.Msg_Request(:final id, :final user, :final minutes, :final reason):
         problem = null;

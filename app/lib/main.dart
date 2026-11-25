@@ -16,6 +16,14 @@ Future<void> main() async {
   await Push.start(h);
 }
 
+/// Hourly background check, run by Android's WorkManager in a separate isolate (see
+/// Push.schedule). Must be a top-level entry point.
+@pragma('vm:entry-point')
+void backgroundCheck() => Push.runChecks(() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await RustLib.init();
+});
+
 /// Palette and type from the design canvas ("Hearth Parent App").
 class C {
   static const ground = Color(0xFFF1F2F8);

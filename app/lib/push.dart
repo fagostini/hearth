@@ -4,8 +4,10 @@ import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart' show MaterialPageRoute;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:unifiedpush/unifiedpush.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'hub.dart';
+import 'main.dart' show backgroundCheck;
 import 'screens.dart' show RequestScreen;
 
 /// Lets a notification tap open a screen from outside the widget tree.
@@ -25,6 +27,7 @@ class Push {
   static Future<void> start(Hub hub) async {
     if (!Platform.isAndroid || _ready) return;
     _ready = true;
+    await schedule();
     await _notes.initialize(
       settings: const InitializationSettings(android: AndroidInitializationSettings('@drawable/ic_stat_hearth')),
       onDidReceiveNotificationResponse: (r) => _open(hub, r.payload),
@@ -47,6 +50,42 @@ class Push {
     await _announce(hub); // anything that arrived before we were listening
     await _register(hub);
   }
+
+  /// Hourly check, in case a wake-up never came (ntfy not running, phone offline).
+  /// Android may run it later to save battery; Today also has pull-to-refresh.
+  static Future<void> schedule() async {
+    await Workmanager().initialize(backgroundCheck);
+    await Workmanager().registerPeriodicTask(
+      'hearth-check',
+      'check',
+      frequency: const Duration(hours: 1),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      constraints: Constraints(networkType: NetworkType.connected),
+    );
+  }
+
+  /// WorkManager's side: fetch what the PC sent since the app last looked and
+  /// announce new requests. Needs no answer from the PC, so it works while it's off.
+  static void runChecks(Future<void> Function() init) => Workmanager().executeTask((_, _) async {
+    try {
+      await init();
+      final hub = await Hub.open();
+      if (!hub.paired) return true;
+      await _notes.initialize(
+        settings: const InitializationSettings(android: AndroidInitializationSettings('@drawable/ic_stat_hearth')),
+      );
+      _ready = true;
+      final news = await hub.poll();
+      for (final m in news) {
+        hub.deliver(m);
+      }
+      await _announce(hub);
+      debugPrint('hearth: background check: ${news.length} new');
+    } catch (e) {
+      debugPrint('hearth: background check failed: $e');
+    }
+    return true; // a failed check just waits for the next hour
+  });
 
   /// Installed distributors (Android package names) and the one in use.
   static Future<List<String>> distributors() async => Platform.isAndroid ? await UnifiedPush.getDistributors() : [];

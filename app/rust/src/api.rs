@@ -185,3 +185,9 @@ pub fn open_push(state_path: String, state_key: Vec<u8>, payload: Vec<u8>) -> an
     let body = client::open_push(Path::new(&state_path), Some(&key(&state_key)?), &payload)?;
     Ok(to_msg(body))
 }
+
+/// What the PC sent since the app last heard from the relay (hourly background check).
+pub fn poll(state_path: String, state_key: Vec<u8>) -> anyhow::Result<Vec<Msg>> {
+    let bodies = client::poll(Path::new(&state_path), Some(&key(&state_key)?))?;
+    Ok(bodies.into_iter().filter_map(to_msg).collect())
+}

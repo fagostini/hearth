@@ -232,7 +232,9 @@ class TodayScreen extends StatelessWidget {
     final demo = h == null || !h.paired;
     final kids = live ? h!.children! : (demo ? Demo.children : <Child>[]);
     final req = h != null && h.paired ? h.requests.firstOrNull : Demo.request;
-    return ListView(
+    final list = ListView(
+      // Always scrollable, so pull-to-refresh works when the list is short.
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       children: [
         Header(
@@ -339,6 +341,8 @@ class TodayScreen extends StatelessWidget {
         ],
       ],
     );
+    if (h == null || !h.paired) return list;
+    return RefreshIndicator(color: C.action, onRefresh: h.refresh, child: list);
   }
 }
 

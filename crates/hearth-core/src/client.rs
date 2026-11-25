@@ -16,6 +16,9 @@ static LOCK: Mutex<()> = Mutex::new(());
 #[derive(Serialize, Deserialize)]
 struct State {
     key: String,
+    /// Last relay message seen (listen or poll), so the hourly poll only fetches news.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    since: Option<String>,
     relay: String,
     topic: String,
     pc: Peer,
@@ -26,18 +29,19 @@ pub type StateKey = [u8; 32];
 
 fn decode(bytes: &[u8], key: Option<&StateKey>) -> Result<State> {
     use chacha20poly1305::{aead::{Aead, KeyInit}, XChaCha20Poly1305, XNonce};
-    if bytes.first() == Some(&b'{') {
-        // Plain JSON: written by a command-line tool, or by an app version before
-        // encryption (the next save encrypts it).
-        return Ok(serde_json::from_slice(bytes)?);
+    // Plain JSON: written by a command-line tool, or by an app version before
+    // encryption (the next save encrypts it). Tried only after decryption fails: a
+    // random nonce starts with '{' once in 256 saves.
+    let plain_json = || -> Result<State> { Ok(serde_json::from_slice(bytes)?) };
+    let Some(key) = key else { return plain_json() };
+    let opened = (bytes.len() > 24).then(|| bytes.split_at(24)).and_then(|(nonce, data)| {
+        XChaCha20Poly1305::new(key.into()).decrypt(&XNonce::from(<[u8; 24]>::try_from(nonce).ok()?), data).ok()
+    });
+    match opened {
+        Some(plain) => Ok(serde_json::from_slice(&plain)?),
+        None if bytes.first() == Some(&b'{') => plain_json(),
+        None => anyhow::bail!("pairing file can't be decrypted (wrong key or damaged)"),
     }
-    let key = key.context("pairing file is encrypted and no key was given")?;
-    anyhow::ensure!(bytes.len() > 24, "pairing file is damaged");
-    let (nonce, data) = bytes.split_at(24);
-    let plain = XChaCha20Poly1305::new(key.into())
-        .decrypt(&XNonce::from(<[u8; 24]>::try_from(nonce)?), data)
-        .map_err(|_| anyhow::anyhow!("pairing file can't be decrypted (wrong key)"))?;
-    Ok(serde_json::from_slice(&plain)?)
 }
 
 fn encode(st: &State, key: Option<&StateKey>) -> Result<Vec<u8>> {
@@ -86,7 +90,7 @@ pub fn pair(path: &Path, key: Option<&StateKey>, qr: &str, phone_name: &str) -> 
     let _g = LOCK.lock().unwrap();
     post(&format!("{}/{}", offer.relay, offer.topic), serde_json::to_string(&req)?)
         .context("can't reach the relay")?;
-    save(path, &State { key: B64.encode(me.to_bytes()), relay: offer.relay, topic: offer.topic, pc }, key)
+    save(path, &State { since: None, key: B64.encode(me.to_bytes()), relay: offer.relay, topic: offer.topic, pc }, key)
 }
 
 /// Post to the relay with a deadline: an unreachable relay must fail, not hang while
@@ -120,6 +124,42 @@ pub fn open_push(path: &Path, key: Option<&StateKey>, payload: &[u8]) -> Result<
     Ok(body)
 }
 
+/// One line of the relay's JSON stream. Returns the message id and, if the message is
+/// from the PC to us and opens (not tampered or replayed), its body. Records the id.
+fn take(path: &Path, key: Option<&StateKey>, line: &str) -> Result<Option<(String, Option<Body>)>> {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { return Ok(None) };
+    let (Some("message"), Some(id)) = (v["event"].as_str(), v["id"].as_str()) else { return Ok(None) };
+    let text = v["message"].as_str().unwrap_or_default();
+    let _g = LOCK.lock().unwrap();
+    let (mut st, me) = load(path, key)?;
+    st.since = Some(id.to_string());
+    // The topic is shared by every phone paired with this PC: skip what isn't from the
+    // PC to us (our own sends, other phones' mail).
+    // ponytail: messages that fail to open are dropped silently; count them if it matters.
+    let body = serde_json::from_str::<Envelope>(text)
+        .ok()
+        .filter(|env| env.from == st.pc.public && env.to == B64.encode(me.public()))
+        .and_then(|_| Channel::new(&me, &mut st.pc).and_then(|mut c| c.open(text)).ok());
+    save(path, &st, key)?;
+    Ok(Some((id.to_string(), body)))
+}
+
+/// Fetch what the PC sent since the last listen or poll, without staying connected
+/// (the hourly background check). The relay keeps messages for 12 hours.
+pub fn poll(path: &Path, key: Option<&StateKey>) -> Result<Vec<Body>> {
+    let (st, _) = load(path, key)?;
+    let since = st.since.as_deref().unwrap_or("12h");
+    let url = format!("{}/{}/json?poll=1&since={since}", st.relay, st.topic);
+    let resp = ureq::get(&url).config().timeout_global(Some(Duration::from_secs(30))).build().call().context("can't reach the relay")?;
+    let mut out = Vec::new();
+    for line in std::io::BufReader::new(resp.into_body().into_reader()).lines() {
+        if let Some((_, Some(body))) = take(path, key, &line?)? {
+            out.push(body);
+        }
+    }
+    Ok(out)
+}
+
 /// Receive messages from the PC until `on_message` returns false. Reconnects with
 /// backoff and resumes from the last message id. `on_link` hears the connection
 /// state: `None` when connected, `Some(reason)` when not. Messages that fail to open
@@ -129,7 +169,7 @@ pub fn listen(path: &Path, key: Option<&StateKey>, mut on_message: impl FnMut(Bo
         let (st, _) = load(path, key)?;
         (st.relay, st.topic)
     };
-    let mut since: Option<String> = None;
+    let mut since = load(path, key)?.0.since;
     let mut backoff = 1;
     loop {
         let url = match &since {
@@ -142,32 +182,12 @@ pub fn listen(path: &Path, key: Option<&StateKey>, mut on_message: impl FnMut(Bo
                 on_link(None);
                 for line in std::io::BufReader::new(resp.into_body().into_reader()).lines() {
                     let Ok(line) = line else { break };
-                    let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
-                    if v["event"] != "message" {
-                        continue;
-                    }
-                    since = v["id"].as_str().map(String::from);
-                    let text = v["message"].as_str().unwrap_or_default();
-                    let Ok(env) = serde_json::from_str::<Envelope>(text) else { continue };
-                    let opened = {
-                        let _g = LOCK.lock().unwrap();
-                        let (mut st, me) = load(path, key)?;
-                        // The topic is shared by every phone paired with this PC: skip
-                        // what isn't from the PC to us (our own sends, other phones' mail).
-                        if env.from != st.pc.public || env.to != B64.encode(me.public()) {
-                            continue;
+                    let Some((id, body)) = take(path, key, &line)? else { continue };
+                    since = Some(id);
+                    if let Some(body) = body {
+                        if !on_message(body) {
+                            return Ok(());
                         }
-                        let r = Channel::new(&me, &mut st.pc).and_then(|mut c| c.open(text));
-                        save(path, &st, key)?;
-                        r
-                    };
-                    match opened {
-                        Ok(body) => {
-                            if !on_message(body) {
-                                return Ok(());
-                            }
-                        }
-                        Err(_) => {} // ponytail: dropped silently; count them if it ever matters
                     }
                 }
             }
@@ -184,7 +204,7 @@ mod tests {
 
     #[test]
     fn state_file_encryption() {
-        let st = State { key: "k".into(), relay: "https://r".into(), topic: "t".into(), pc: Peer { public: "p".into(), name: "PC".into(), sent: 3, received: 4, seen: 0 } };
+        let st = State { since: None, key: "k".into(), relay: "https://r".into(), topic: "t".into(), pc: Peer { public: "p".into(), name: "PC".into(), sent: 3, received: 4, seen: 0 } };
         let key = [7u8; 32];
         let sealed = encode(&st, Some(&key)).unwrap();
         assert!(!String::from_utf8_lossy(&sealed).contains("https://r"));
@@ -194,5 +214,8 @@ mod tests {
         // An old plain file still opens, with or without a key.
         let plain = encode(&st, None).unwrap();
         assert_eq!(decode(&plain, Some(&key)).unwrap().topic, "t");
+        // The random nonce sometimes starts with '{'; that must not look like plain JSON.
+        let brace = std::iter::repeat_with(|| encode(&st, Some(&key)).unwrap()).find(|b| b[0] == b'{').unwrap();
+        assert_eq!(decode(&brace, Some(&key)).unwrap().pc.received, 4);
     }
 }

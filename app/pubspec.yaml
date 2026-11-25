@@ -19,6 +19,7 @@ dependencies:
   mobile_scanner: ^7.5.0
   path_provider: ^2.1.6
   unifiedpush: ^6.2.0
+  workmanager: ^0.10.10
 
 dev_dependencies:
   flutter_test:
