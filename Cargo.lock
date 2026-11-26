@@ -757,7 +757,7 @@ dependencies = [
 
 [[package]]
 name = "hearth-agent"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "futures-util",
  "tokio",
@@ -766,7 +766,7 @@ dependencies = [
 
 [[package]]
 name = "hearth-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "base64",
@@ -783,7 +783,7 @@ dependencies = [
 
 [[package]]
 name = "hearth_bridge"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "flutter_rust_bridge",
@@ -792,7 +792,7 @@ dependencies = [
 
 [[package]]
 name = "hearthd"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "base64",

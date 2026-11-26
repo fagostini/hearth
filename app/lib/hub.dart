@@ -140,7 +140,12 @@ class Hub extends ChangeNotifier {
   /// Tell the PC where to send wake-ups (null = stop).
   Future<void> setPush(String? endpoint) async {
     if (!paired) return;
-    await rust.setPush(statePath: statePath, stateKey: stateKey, endpoint: endpoint);
+    try {
+      await rust.setPush(statePath: statePath, stateKey: stateKey, endpoint: endpoint);
+    } catch (e) {
+      // Offline: UnifiedPush hands the endpoint over again on the next start, and we retry then.
+      debugPrint('hearth: push endpoint not sent: $e');
+    }
   }
 
   void _on(rust.Msg m) {
