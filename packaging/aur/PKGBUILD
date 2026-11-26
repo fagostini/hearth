@@ -1,6 +1,6 @@
 # Maintainer: Federico Agostini <fedagoplay@proton.me>
 pkgname=hearth
-pkgver=0.1.1
+pkgver=0.1.2
 pkgrel=1
 pkgdesc="Parental controls for Linux family PCs, with a parent app for your phone"
 arch=('x86_64' 'aarch64')

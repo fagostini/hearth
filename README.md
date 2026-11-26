@@ -15,7 +15,7 @@ Status: early (0.1). Tested on Ubuntu 24.04 with KDE Plasma and GNOME, and with 
 Packages for Ubuntu/Debian (`.deb`), Fedora (`.rpm`) and Arch (`packaging/aur/PKGBUILD`) are built from this repository (see Build). Then:
 
 ```sh
-sudo apt install ./hearth_0.1.1-1_amd64.deb     # or: sudo dnf install ./hearth-0.1.1-1.x86_64.rpm
+sudo apt install ./hearth_0.1.2-1_amd64.deb     # or: sudo dnf install ./hearth-0.1.2-1.x86_64.rpm
 sudo hearthd setup
 ```
 
