@@ -8,7 +8,18 @@ Parental controls for Linux family PCs, with a parent app for your phone.
 - **Asking for more time:** the child asks from the PC; the parent gets a notification on their phone and answers with one tap.
 - **Parent app (Android):** today's usage, a 7-day history, rules and requests, live from the PC.
 
-Status: early (0.1). Tested on Ubuntu 24.04 with KDE Plasma and GNOME, and with an Android phone. There are no packages yet.
+Status: early (0.1). Tested on Ubuntu 24.04 with KDE Plasma and GNOME, and with an Android phone.
+
+## Install
+
+Packages for Ubuntu/Debian (`.deb`), Fedora (`.rpm`) and Arch (`packaging/aur/PKGBUILD`) are built from this repository (see Build). Then:
+
+```sh
+sudo apt install ./hearth_0.1.0-1_amd64.deb     # or: sudo dnf install ./hearth-0.1.0-1.x86_64.rpm
+sudo hearthd setup
+```
+
+`hearthd setup` asks which accounts belong to children (or creates them), sets their first rules, turns on web filtering, starts Hearth and shows a QR code for the parent app. Children's accounts must not be administrators.
 
 ## How it works
 
@@ -28,8 +39,10 @@ Each child needs their own Linux account, without admin rights.
 Requirements: Rust (edition 2024), and for the app Flutter and the Android SDK.
 
 ```sh
-cargo build --release            # hearthd, hearth-agent
-cd app && flutter build apk      # parent app
+cargo build --release -p hearthd -p hearth-agent
+cargo deb -p hearthd --no-build             # .deb  (cargo install cargo-deb)
+cargo generate-rpm -p crates/hearthd        # .rpm  (cargo install cargo-generate-rpm)
+cd app && flutter build apk                 # parent app
 ```
 
 `data/` has the systemd units, D-Bus policy, autostart entry and an example `hearthd.toml`.
