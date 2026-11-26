@@ -172,10 +172,9 @@ pub fn listen(path: &Path, key: Option<&StateKey>, mut on_message: impl FnMut(Bo
     let mut since = load(path, key)?.0.since;
     let mut backoff = 1;
     loop {
-        let url = match &since {
-            Some(id) => format!("{relay}/{topic}/json?since={id}"),
-            None => format!("{relay}/{topic}/json"),
-        };
+        // Never without `since`: replies the PC sends before this connection opens (a fresh
+        // pairing asks for everything at once) would be lost. Old ones fail to open and drop.
+        let url = format!("{relay}/{topic}/json?since={}", since.as_deref().unwrap_or("12h"));
         match ureq::get(&url).config().timeout_connect(Some(Duration::from_secs(10))).build().call() {
             Ok(resp) => {
                 backoff = 1;

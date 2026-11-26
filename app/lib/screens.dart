@@ -1506,7 +1506,12 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
   /// shows the placeholder and pairs by typing the code.
   final bool camera = Platform.isAndroid || Platform.isIOS;
   late final ScannerController? scanner = camera
-      ? ScannerController(formats: const {BarcodeFormat.qrCode}, scanWindow: const ScanWindow.full())
+      ? ScannerController(
+          formats: const {BarcodeFormat.qrCode},
+          scanWindow: const ScanWindow.full(),
+          // terminals usually draw the code light on dark: read inverted codes too
+          options: const ReaderOptions.camera().copyWith(tryInvert: true),
+        )
       : null;
   bool busy = false;
   String? error;
@@ -1594,6 +1599,18 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
                           controller: scanner,
                           onDetect: _onDetect,
                           overlayBuilder: (_, _) => const SizedBox.shrink(), // our viewfinder is drawn below
+                          errorBuilder: (_, e) => Padding(
+                            padding: const EdgeInsets.all(40),
+                            child: Center(
+                              child: Text(
+                                e is CameraPermissionException
+                                    ? 'Camera access is off. Allow it in Android settings, or type the code.'
+                                    : 'The camera isn\'t available. Type the code instead.',
+                                textAlign: TextAlign.center,
+                                style: body(14, color: Colors.white, height: 1.4),
+                              ),
+                            ),
+                          ),
                         ),
                       AnimatedBuilder(
                         animation: scan,
