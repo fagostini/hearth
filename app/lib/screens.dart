@@ -4,7 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter_zxing/flutter_zxing.dart';
 
 import 'hub.dart';
 import 'main.dart';
@@ -1505,16 +1505,18 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
   /// Camera only where the scanner plugin exists (Android, iOS); the desktop app
   /// shows the placeholder and pairs by typing the code.
   final bool camera = Platform.isAndroid || Platform.isIOS;
-  late final MobileScannerController? scanner = camera
-      ? MobileScannerController(formats: const [BarcodeFormat.qrCode], detectionSpeed: DetectionSpeed.noDuplicates)
+  late final ScannerController? scanner = camera
+      ? ScannerController(formats: const {BarcodeFormat.qrCode}, scanWindow: const ScanWindow.full())
       : null;
   bool busy = false;
   String? error;
+  String? tried;
 
   Future<void> _onDetect(BarcodeCapture capture) async {
-    final code = capture.barcodes.firstOrNull?.rawValue;
+    final code = capture.barcode.text;
     final h = hub;
-    if (code == null || busy || h == null) return;
+    if (code.isEmpty || code == tried || busy || h == null) return;
+    tried = code; // the camera sees the same code every frame: try each once
     setState(() {
       busy = true;
       error = null;
@@ -1587,7 +1589,12 @@ class _PairScreenState extends State<PairScreen> with SingleTickerProviderStateM
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (camera) MobileScanner(controller: scanner, onDetect: _onDetect),
+                      if (camera)
+                        BarcodeScanner(
+                          controller: scanner,
+                          onDetect: _onDetect,
+                          overlayBuilder: (_, _) => const SizedBox.shrink(), // our viewfinder is drawn below
+                        ),
                       AnimatedBuilder(
                         animation: scan,
                         builder: (_, _) =>
