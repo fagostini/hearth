@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/assets/icon/icon.png" width="112" alt="Hearth icon">
+  <img src="docs/icon.svg" width="112" alt="Hearth icon">
 </p>
 
 <h1 align="center">Hearth</h1>
